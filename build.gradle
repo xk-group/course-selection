@@ -29,7 +29,14 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.22'
 
     compile group: 'com.typesafe.akka', name: 'akka-actor_2.11', version: '2.5.2'
+    compile group: 'com.typesafe.akka', name: 'akka-http_2.11', version:'10.0.6'
+    compile group: 'com.typesafe.akka', name: 'akka-cluster_2.11', version: '2.5.2'
+    compile group: 'com.typesafe.akka', name: 'akka-cluster-sharding_2.11', version: '2.5.2'
+    compile group: 'com.typesafe.akka', name: 'akka-distributed-data_2.11', version: '2.5.2'
+    compile group: 'com.typesafe.akka', name: 'akka-persistence_2.11', version: '2.5.2'
+
     testCompile group: 'com.typesafe.akka', name: 'akka-testkit_2.11', version: '2.5.2'
+    testCompile group: 'com.typesafe.akka', name: 'akka-http-testkit_2.11', version:'10.0.6'
 
     // Declare the dependency for your favourite test framework you want to use in your tests.
     // TestNG is also supported by the Gradle Test task. Just change the
@@ -38,8 +45,10 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
+
 task exec(type:JavaExec) {
-    main = mainClass
+    main = project.hasProperty("mainClass") ? mainClass : ""
     classpath = sourceSets.main.runtimeClasspath
 }
+
 
