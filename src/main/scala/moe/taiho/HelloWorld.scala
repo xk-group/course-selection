@@ -18,7 +18,7 @@ object HelloWorld extends App {
 
     implicit val timeout = Timeout(5.second)
 
-    (helloWorld ? "hello") onSuccess {
+    (helloWorld ? "hello") foreach {
         case "world!" => println("hello world!")
     }
 
