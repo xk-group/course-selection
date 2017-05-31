@@ -15,6 +15,7 @@ object CourseActor {
 
     case class Envelope(id: Int, command: Command)
 
+    val ShardName = "Course"
     val extractEntityId: ShardRegion.ExtractEntityId = {
         case Envelope(id: Int, command: Command) => (id.toString, command)
     }

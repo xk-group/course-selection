@@ -34,6 +34,10 @@ dependencies {
     compile group: 'com.typesafe.akka', name: 'akka-cluster-sharding_2.12', version: '2.5.2'
     compile group: 'com.typesafe.akka', name: 'akka-distributed-data_2.12', version: '2.5.2'
     compile group: 'com.typesafe.akka', name: 'akka-persistence_2.12', version: '2.5.2'
+    compile group: 'com.typesafe.akka', name: 'akka-cluster-metrics_2.12', version: '2.5.2'
+
+    // For cluster metrics
+    compile 'io.kamon:sigar-loader:1.6.6-rev002'
 
     testCompile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.2'
     testCompile group: 'com.typesafe.akka', name: 'akka-http-testkit_2.12', version:'10.0.6'

@@ -1,7 +1,7 @@
 package moe.taiho.actors
 
 import akka.actor.ActorRef
-import akka.cluster.sharding.ShardRegion
+import akka.cluster.sharding.{ClusterSharding, ShardRegion}
 import akka.event.Logging
 import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
 
@@ -23,6 +23,7 @@ object StudentActor {
     case class Success(student: Int, course: Int, target: Boolean)
     case class Failure(student: Int, course: Int, target: Boolean, reason: String)
 
+    val ShardName = "Student"
     val extractEntityId: ShardRegion.ExtractEntityId = {
         case Envelope(id: Int, command: Command) => (id.toString, command)
     }
@@ -38,6 +39,8 @@ class StudentActor extends PersistentActor with AtLeastOnceDelivery {
     val log = Logging(context.system, this)
 
     val id: Int = self.path.name.toInt
+
+    val courseRegion = ClusterSharding(context.system).shardRegion(CourseActor.ShardName)
 
     class State {
         private val selected: mutable.Map[Int, (Boolean/*target*/, Boolean/*confirmed*/, Long)] = mutable.TreeMap()
@@ -63,13 +66,13 @@ class StudentActor extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected.remove(course)
-                case Take(course) => deliver(context.actorSelection(s"/user/Course")) {
+                case Take(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (true, false, deliveryId)
                         CourseActor.Envelope(course, CourseActor.Take(id, deliveryId))
                 }
-                case Drop(course) => deliver(context.actorSelection(s"/user/Course")) {
+                case Drop(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (false, false, deliveryId)
