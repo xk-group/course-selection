@@ -1,9 +1,10 @@
-package moe.taiho.CourseSelection.actors
+package moe.taiho.course_selection.actors
 
 import akka.actor.ActorRef
 import akka.cluster.sharding.{ClusterSharding, ShardRegion}
 import akka.event.Logging
 import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
+import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 
@@ -23,13 +24,15 @@ object StudentActor {
     case class Success(student: Int, course: Int, target: Boolean)
     case class Failure(student: Int, course: Int, target: Boolean, reason: String)
 
+    val ShardNr = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
+    val Role = Some("student")
     val extractEntityId: ShardRegion.ExtractEntityId = {
         case Envelope(id: Int, command: Command) => (id.toString, command)
     }
-    def extractShardId(numShards: Int): ShardRegion.ExtractShardId = {
-        case m: Envelope => (m.id.hashCode % numShards).toString
-        case ShardRegion.StartEntity(id) => (id.toInt.hashCode % numShards).toString
+    val extractShardId: ShardRegion.ExtractShardId = {
+        case m: Envelope => (m.id.hashCode % ShardNr).toString
+        case ShardRegion.StartEntity(id) => (id.toInt.hashCode % ShardNr).toString
     }
 }
 

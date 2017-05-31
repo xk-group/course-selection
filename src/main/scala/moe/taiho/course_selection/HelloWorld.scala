@@ -1,9 +1,9 @@
-package moe.taiho.CourseSelection
+package moe.taiho.course_selection
 
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import moe.taiho.CourseSelection.actors.HelloWorldActor
+import moe.taiho.course_selection.actors.HelloWorldActor
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

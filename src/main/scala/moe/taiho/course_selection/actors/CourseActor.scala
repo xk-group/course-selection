@@ -1,8 +1,9 @@
-package moe.taiho.CourseSelection.actors
+package moe.taiho.course_selection.actors
 
 import akka.cluster.sharding.ShardRegion
 import akka.event.Logging
 import akka.persistence.{PersistentActor, SnapshotOffer}
+import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 
@@ -15,13 +16,15 @@ object CourseActor {
 
     case class Envelope(id: Int, command: Command)
 
+    val ShardNr = ConfigFactory.load().getInt("course-selection.course-shard-nr")
     val ShardName = "Course"
+    val Role = Some("course")
     val extractEntityId: ShardRegion.ExtractEntityId = {
         case Envelope(id: Int, command: Command) => (id.toString, command)
     }
-    def extractShardId(numShards: Int): ShardRegion.ExtractShardId = {
-        case m: Envelope => (m.id.hashCode % numShards).toString
-        case ShardRegion.StartEntity(id) => (id.toInt.hashCode % numShards).toString
+    val extractShardId: ShardRegion.ExtractShardId = {
+        case m: Envelope => (m.id.hashCode % ShardNr).toString
+        case ShardRegion.StartEntity(id) => (id.toInt.hashCode % ShardNr).toString
     }
 }
 
@@ -78,6 +81,10 @@ class CourseActor extends PersistentActor {
                 state.update(m)
                 sender() ! StudentActor.Envelope(student, StudentActor.Dropped(id, deliveryId))
             }
+        }
+        case m @ SetLimit(limit) => persist(m) {
+            m => state.update(m)
+                log.info(s"SetLimit to $limit")
         }
         case _ => log.info(s"unhandled message on Course $id")
     }
