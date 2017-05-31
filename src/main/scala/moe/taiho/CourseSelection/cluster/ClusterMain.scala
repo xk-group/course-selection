@@ -1,9 +1,10 @@
-package moe.taiho.cluster
+package moe.taiho.CourseSelection.cluster
 
 import akka.actor.{ActorSystem, Props}
 import akka.cluster.Cluster
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
-import moe.taiho.actors.{CourseActor, NaiveClusterListener, StudentActor}
+import moe.taiho.CourseSelection.actors.{CourseActor, NaiveClusterListener, StudentActor}
+import moe.taiho.actors.{NaiveClusterListener, StudentActor}
 
 object ClusterMain extends App {
     val system = ActorSystem("CourseSelectSystem")

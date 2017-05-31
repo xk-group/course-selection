@@ -1,4 +1,4 @@
-package moe.taiho.actors
+package moe.taiho.CourseSelection.actors
 
 import akka.actor.Actor
 import akka.event.Logging

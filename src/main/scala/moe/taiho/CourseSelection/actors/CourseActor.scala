@@ -1,4 +1,4 @@
-package moe.taiho.actors
+package moe.taiho.CourseSelection.actors
 
 import akka.cluster.sharding.ShardRegion
 import akka.event.Logging

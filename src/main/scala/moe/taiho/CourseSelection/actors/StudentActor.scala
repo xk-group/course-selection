@@ -1,4 +1,4 @@
-package moe.taiho.actors
+package moe.taiho.CourseSelection.actors
 
 import akka.actor.ActorRef
 import akka.cluster.sharding.{ClusterSharding, ShardRegion}
