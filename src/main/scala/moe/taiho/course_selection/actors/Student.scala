@@ -8,7 +8,7 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 
-object StudentActor {
+object Student {
     sealed trait Command
     // Requested by frontend
     case class Take(course: Int) extends Command
@@ -36,14 +36,14 @@ object StudentActor {
     }
 }
 
-class StudentActor extends PersistentActor with AtLeastOnceDelivery {
-    import StudentActor._
+class Student extends PersistentActor with AtLeastOnceDelivery {
+    import Student._
 
     val log = Logging(context.system, this)
 
     val id: Int = self.path.name.toInt
 
-    val courseRegion = ClusterSharding(context.system).shardRegion(CourseActor.ShardName)
+    val courseRegion = ClusterSharding(context.system).shardRegion(Course.ShardName)
 
     class State {
         private val selected: mutable.Map[Int, (Boolean/*target*/, Boolean/*confirmed*/, Long)] = mutable.TreeMap()
@@ -73,13 +73,13 @@ class StudentActor extends PersistentActor with AtLeastOnceDelivery {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (true, false, deliveryId)
-                        CourseActor.Envelope(course, CourseActor.Take(id, deliveryId))
+                        Course.Envelope(course, Course.Take(id, deliveryId))
                 }
                 case Drop(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (false, false, deliveryId)
-                        CourseActor.Envelope(course, CourseActor.Drop(id, deliveryId))
+                        Course.Envelope(course, Course.Drop(id, deliveryId))
                 }
             }
         }

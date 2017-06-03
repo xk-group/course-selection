@@ -4,13 +4,8 @@ import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
-import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
-import akka.pattern.ask
-import akka.util.Timeout
 
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import moe.taiho.course_selection.actors.{CourseActor, StudentActor}
+import moe.taiho.course_selection.actors.{Course, Student}
 import moe.taiho.course_selection.cluster.ClusterMain.system
 
 object ClusterMain extends App {
@@ -19,25 +14,25 @@ object ClusterMain extends App {
 
     val studentRegion = if (cluster.selfRoles contains "student") {
         ClusterSharding(system).start(
-            StudentActor.ShardName, Props[StudentActor], ClusterShardingSettings(system).withRole(StudentActor.Role),
-            StudentActor.extractEntityId, StudentActor.extractShardId
+            Student.ShardName, Props[Student], ClusterShardingSettings(system).withRole(Student.Role),
+            Student.extractEntityId, Student.extractShardId
         )
     } else {
         ClusterSharding(system).startProxy(
-            StudentActor.ShardName, StudentActor.Role,
-            StudentActor.extractEntityId, StudentActor.extractShardId
+            Student.ShardName, Student.Role,
+            Student.extractEntityId, Student.extractShardId
         )
     }
 
     val courseRegion = if (cluster.selfRoles contains "course") {
         ClusterSharding(system).start(
-            CourseActor.ShardName, Props[CourseActor], ClusterShardingSettings(system).withRole(CourseActor.Role),
-            CourseActor.extractEntityId, CourseActor.extractShardId
+            Course.ShardName, Props[Course], ClusterShardingSettings(system).withRole(Course.Role),
+            Course.extractEntityId, Course.extractShardId
         )
     } else {
         ClusterSharding(system).startProxy(
-            CourseActor.ShardName, CourseActor.Role,
-            CourseActor.extractEntityId, CourseActor.extractShardId
+            Course.ShardName, Course.Role,
+            Course.extractEntityId, Course.extractShardId
         )
     }
 
@@ -60,8 +55,8 @@ class NaiveClusterListener extends Actor with ActorLogging {
         case MemberUp(member) =>
             log.info("Member is Up: {}", member.address)
             if (member.roles contains "course") {
-                val courseRegion = ClusterSharding(system).shardRegion(CourseActor.ShardName)
-                courseRegion ! CourseActor.Envelope(1, CourseActor.SetLimit(30))
+                val courseRegion = ClusterSharding(system).shardRegion(Course.ShardName)
+                courseRegion ! Course.Envelope(1, Course.SetLimit(30))
             }
         case UnreachableMember(member) =>
             log.info("Member detected as unreachable: {}", member)

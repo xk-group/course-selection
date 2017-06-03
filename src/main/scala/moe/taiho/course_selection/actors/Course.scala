@@ -7,7 +7,7 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 
-object CourseActor {
+object Course {
 
     sealed trait Command
     case class SetLimit(num: Int) extends Command
@@ -28,8 +28,8 @@ object CourseActor {
     }
 }
 
-class CourseActor extends PersistentActor {
-    import CourseActor._
+class Course extends PersistentActor {
+    import Course._
 
     val id = self.path.name.toInt
 
@@ -70,16 +70,16 @@ class CourseActor extends PersistentActor {
             if (state.newer(student, deliveryId)) {
                 if (!state.isFull) persist(m) { m =>
                     state.update(m)
-                    sender() ! StudentActor.Envelope(student, StudentActor.Taken(id, deliveryId))
+                    sender() ! Student.Envelope(student, Student.Taken(id, deliveryId))
                 } else {
-                    sender() ! StudentActor.Envelope(student, StudentActor.Full(id, deliveryId))
+                    sender() ! Student.Envelope(student, Student.Full(id, deliveryId))
                 }
             }
         }
         case m @ Drop(student, deliveryId) => {
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
-                sender() ! StudentActor.Envelope(student, StudentActor.Dropped(id, deliveryId))
+                sender() ! Student.Envelope(student, Student.Dropped(id, deliveryId))
             }
         }
         case m @ SetLimit(limit) => persist(m) {
