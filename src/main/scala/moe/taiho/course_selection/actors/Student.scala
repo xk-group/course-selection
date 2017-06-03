@@ -48,7 +48,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
     val courseRegion: ActorRef = ClusterSharding(context.system).shardRegion(Course.ShardName)
 
     class State {
-        private val selected: mutable.Map[Int, (Boolean/*target*/, Boolean/*confirmed*/, Long)] = mutable.TreeMap()
+        private val selected: mutable.Map[Int, (/*target*/Boolean, /*confirmed*/Boolean, /*deliveryId*/Long)] = mutable.TreeMap()
 
         def effective(course: Int, deliveryId: Long): Boolean = {
             selected get course exists { t =>
@@ -75,13 +75,13 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (true, false, deliveryId)
-                        Course.Envelope(course, Course.Take(id, deliveryId))
+                        Course.Envelope(course, Course.Take(student = id, deliveryId))
                 }
                 case Drop(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (false, false, deliveryId)
-                        Course.Envelope(course, Course.Drop(id, deliveryId))
+                        Course.Envelope(course, Course.Drop(student = id, deliveryId))
                 }
             }
         }
@@ -102,7 +102,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Success(id, course, target = true)
+                    s ! Success(student = id, course, target = true)
                     sessions remove course
                 }
             }
@@ -110,7 +110,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Failure(id, course, false, reason)
+                    s ! Failure(student = id, course, target = false, reason)
                     sessions remove course
                 }
             }
@@ -118,7 +118,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Success(id, course, false)
+                    s ! Success(student = id, course, target = false)
                     sessions remove course
                 }
             }
@@ -126,7 +126,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             // todo: do some check here!
             state.query(course) match {
                 case (true, false) => // do nothing
-                case (true, true) => sender() ! Success(id, course, true)
+                case (true, true) => sender() ! Success(student = id, course, target = true)
                 case _ => persist(m) { m =>
                     sessions(course) = sender()
                     state.update(m)
@@ -135,7 +135,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Drop(course) =>
             state.query(course) match {
                 case (false, false) => // do nothing
-                case (false, true) => sender() ! Success(id, course, false)
+                case (false, true) => sender() ! Success(student = id, course, target = false)
                 case _ => persist(m) { m =>
                     sessions(course) = sender()
                     state.update(m)
