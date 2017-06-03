@@ -108,7 +108,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Success(id, course, true)
+                    s ! Success(id, course, false)
                     sessions remove course
                 }
             }
