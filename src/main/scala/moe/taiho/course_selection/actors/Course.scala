@@ -4,6 +4,7 @@ import akka.cluster.sharding.ShardRegion
 import akka.event.Logging
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import com.typesafe.config.ConfigFactory
+import moe.taiho.course_selection.actors.CommonMessage.Reason
 
 import scala.collection.mutable
 
@@ -26,6 +27,8 @@ object Course {
         case m: Envelope => (m.id.hashCode % ShardNr).toString
         case ShardRegion.StartEntity(id) => (id.toInt.hashCode % ShardNr).toString
     }
+
+    case class CourseFull() extends Reason
 }
 
 class Course extends PersistentActor {
@@ -72,7 +75,7 @@ class Course extends PersistentActor {
                     state.update(m)
                     sender() ! Student.Envelope(student, Student.Taken(id, deliveryId))
                 } else {
-                    sender() ! Student.Envelope(student, Student.Full(id, deliveryId))
+                    sender() ! Student.Envelope(student, Student.Refused(id, deliveryId, CourseFull()))
                 }
             }
         }

@@ -8,6 +8,8 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 
+import CommonMessage.Reason
+
 object Student {
     sealed trait Command
     // Requested by frontend
@@ -15,16 +17,16 @@ object Student {
     case class Drop(course: Int) extends Command
     // Course responses
     case class Taken(course: Int, deliveryId: Long) extends Command
-    case class Full(course: Int, deliveryId: Long) extends Command
+    case class Refused(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Dropped(course: Int, deliveryId: Long) extends Command
 
     case class Envelope(id: Int, command: Command)
 
-    // reply to frontend
+    // Respond to frontend
     case class Success(student: Int, course: Int, target: Boolean)
-    case class Failure(student: Int, course: Int, target: Boolean, reason: String)
+    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason)
 
-    val ShardNr = ConfigFactory.load().getInt("course-selection.student-shard-nr")
+    val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
     val Role = Some("student")
     val extractEntityId: ShardRegion.ExtractEntityId = {
@@ -43,7 +45,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
 
     val id: Int = self.path.name.toInt
 
-    val courseRegion = ClusterSharding(context.system).shardRegion(Course.ShardName)
+    val courseRegion: ActorRef = ClusterSharding(context.system).shardRegion(Course.ShardName)
 
     class State {
         private val selected: mutable.Map[Int, (Boolean/*target*/, Boolean/*confirmed*/, Long)] = mutable.TreeMap()
@@ -61,7 +63,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected(course) = (true, true, deliveryId)
-                case Full(course, deliveryId) =>
+                case Refused(course, deliveryId, _) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected remove course
@@ -100,15 +102,15 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Success(id, course, true)
+                    s ! Success(id, course, target = true)
                     sessions remove course
                 }
             }
-        case m @ Full(course, deliveryId) =>
+        case m @ Refused(course, deliveryId, reason) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
-                    s ! Success(id, course, false)
+                    s ! Failure(id, course, false, reason)
                     sessions remove course
                 }
             }
@@ -121,6 +123,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 }
             }
         case m @ Take(course) =>
+            // todo: do some check here!
             state.query(course) match {
                 case (true, false) => // do nothing
                 case (true, true) => sender() ! Success(id, course, true)
