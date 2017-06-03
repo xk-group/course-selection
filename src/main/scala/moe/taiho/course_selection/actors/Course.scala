@@ -84,9 +84,8 @@ class Course extends PersistentActor {
         }
         case m @ SetLimit(limit) => persist(m) {
             m => state.update(m)
-                log.info(s"SetLimit to $limit")
         }
-        case _ => log.info(s"unhandled message on Course $id")
+        case _ => log.warning(s"unhandled message on Course $id")
     }
 
     override def persistenceId: String = s"Course-$id"

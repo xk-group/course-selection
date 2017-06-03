@@ -138,6 +138,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
+        case _ => log.warning("unhandled message")
     }
 
     override def persistenceId: String = s"Student-$id"
