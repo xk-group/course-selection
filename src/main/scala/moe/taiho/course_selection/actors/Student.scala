@@ -89,7 +89,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
 
     var state = new State()
 
-    val requests: mutable.Map[Int, ActorRef] = mutable.TreeMap()
+    val sessions: mutable.Map[Int, ActorRef] = mutable.TreeMap()
 
     override def receiveRecover: Receive = {
         case m: Command => state.update(m)
@@ -99,25 +99,25 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Taken(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
-                requests get course foreach { s =>
+                sessions get course foreach { s =>
                     s ! Success(id, course, true)
-                    requests remove course
+                    sessions remove course
                 }
             }
         case m @ Full(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
-                requests get course foreach { s =>
+                sessions get course foreach { s =>
                     s ! Success(id, course, true)
-                    requests remove course
+                    sessions remove course
                 }
             }
         case m @ Dropped(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
-                requests get course foreach { s =>
+                sessions get course foreach { s =>
                     s ! Success(id, course, false)
-                    requests remove course
+                    sessions remove course
                 }
             }
         case m @ Take(course) =>
@@ -125,7 +125,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 case (true, false) => // do nothing
                 case (true, true) => sender() ! Success(id, course, true)
                 case _ => persist(m) { m =>
-                    requests(course) = sender()
+                    sessions(course) = sender()
                     state.update(m)
                 }
             }
@@ -134,7 +134,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 case (false, false) => // do nothing
                 case (false, true) => sender() ! Success(id, course, false)
                 case _ => persist(m) { m =>
-                    requests(course) = sender()
+                    sessions(course) = sender()
                     state.update(m)
                 }
             }
