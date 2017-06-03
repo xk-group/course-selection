@@ -6,7 +6,6 @@ import akka.cluster.ClusterEvent._
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
 
 import moe.taiho.course_selection.actors.{Course, Student}
-import moe.taiho.course_selection.cluster.ClusterMain.system
 
 object ClusterMain extends App {
     val system = ActorSystem("CourseSelectSystem")
@@ -38,6 +37,7 @@ object ClusterMain extends App {
 
     if (cluster.selfRoles contains "node1") {
         system.actorOf(Props[NaiveClusterListener])
+        courseRegion ! Course.Envelope(1, Course.SetLimit(30))
     }
 
 }
@@ -51,13 +51,9 @@ class NaiveClusterListener extends Actor with ActorLogging {
     }
     override def postStop(): Unit = cluster.unsubscribe(self)
 
-    override def receive = {
+    override def receive: Receive = {
         case MemberUp(member) =>
             log.info("Member is Up: {}", member.address)
-            if (member.roles contains "course") {
-                val courseRegion = ClusterSharding(system).shardRegion(Course.ShardName)
-                courseRegion ! Course.Envelope(1, Course.SetLimit(30))
-            }
         case UnreachableMember(member) =>
             log.info("Member detected as unreachable: {}", member)
         case MemberRemoved(member, previousStatus) =>
