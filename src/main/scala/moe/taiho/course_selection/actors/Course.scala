@@ -6,19 +6,31 @@ import akka.cluster.ddata.{DistributedData, LWWMap, LWWMapKey}
 import akka.cluster.sharding.ShardRegion
 import akka.event.Logging
 import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
+import boopickle.CompositePickler
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.typesafe.config.ConfigFactory
+import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
 import moe.taiho.course_selection.actors.CommonMessage.Reason
 
 import scala.collection.mutable
 
 object Course {
 
-    sealed trait Command
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes(Array(
+        new JsonSubTypes.Type(value = classOf[SetLimit]),
+        new JsonSubTypes.Type(value = classOf[Take]),
+        new JsonSubTypes.Type(value = classOf[Quit])))
+    sealed trait Command extends JacksonSerializable with BoopickleSerializable
     case class SetLimit(num: Int) extends Command
     case class Take(student: Int, deliveryId: Long) extends Command
     case class Quit(student: Int, deliveryId: Long) extends Command
 
-    case class Envelope(id: Int, command: Command)
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
+
+    implicit val commandPickler = CompositePickler[Command]
+    implicit val envelopePickler = CompositePickler[Envelope]
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.course-shard-nr")
     val ShardName = "Course"

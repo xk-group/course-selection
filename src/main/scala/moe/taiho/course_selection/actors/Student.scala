@@ -7,11 +7,22 @@ import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
-
 import CommonMessage.Reason
+import akka.persistence.AtLeastOnceDelivery.{UnconfirmedDelivery, UnconfirmedWarning}
+import boopickle.CompositePickler
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
+import boopickle.DefaultBasic._
 
 object Student {
-    sealed trait Command
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes(Array(
+        new JsonSubTypes.Type(value = classOf[Take]),
+        new JsonSubTypes.Type(value = classOf[Quit]),
+        new JsonSubTypes.Type(value = classOf[Taken]),
+        new JsonSubTypes.Type(value = classOf[Rejected]),
+        new JsonSubTypes.Type(value = classOf[Quitted])))
+    sealed trait Command extends JacksonSerializable with BoopickleSerializable
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
@@ -20,7 +31,11 @@ object Student {
     case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Quitted(course: Int, deliveryId: Long) extends Command
 
-    case class Envelope(id: Int, command: Command)
+    implicit val commandPickler = CompositePickler[Command]
+    implicit val envelopePickler = CompositePickler[Envelope]
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
 
     // Respond to frontend
     case class Success(student: Int, course: Int, target: Boolean)
@@ -141,6 +156,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
+        case _: UnconfirmedWarning => // ignore
         case m => log.warning(s"unhandled message $m")
     }
 
