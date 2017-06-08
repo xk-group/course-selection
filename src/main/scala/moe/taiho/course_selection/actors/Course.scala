@@ -16,7 +16,7 @@ object Course {
     sealed trait Command
     case class SetLimit(num: Int) extends Command
     case class Take(student: Int, deliveryId: Long) extends Command
-    case class Drop(student: Int, deliveryId: Long) extends Command
+    case class Quit(student: Int, deliveryId: Long) extends Command
 
     case class Envelope(id: Int, command: Command)
 
@@ -61,7 +61,7 @@ class Course extends PersistentActor {
                     assert(newer(student, deliveryId))
                     selected(student) = (true, deliveryId)
                     numSelected += 1
-                case Drop(student, deliveryId) =>
+                case Quit(student, deliveryId) =>
                     assert(newer(student, deliveryId))
                     selected(student) = (false, deliveryId)
                     numSelected -= 1
@@ -85,14 +85,14 @@ class Course extends PersistentActor {
                     replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
                     sender() ! Student.Taken(id, deliveryId)
                 } else {
-                    sender() ! Student.Refused(id, deliveryId, CourseFull())
+                    sender() ! Student.Rejected(id, deliveryId, CourseFull())
                 }
             }
-        case m @ Drop(student, deliveryId) =>
+        case m @ Quit(student, deliveryId) =>
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
                 replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
-                sender() ! Student.Dropped(id, deliveryId)
+                sender() ! Student.Quitted(id, deliveryId)
             }
         case m @ SetLimit(_) => persist(m) {
             m => state.update(m)

@@ -14,11 +14,11 @@ object Student {
     sealed trait Command
     // Requested by frontend
     case class Take(course: Int) extends Command
-    case class Drop(course: Int) extends Command
+    case class Quit(course: Int) extends Command
     // Course responses
     case class Taken(course: Int, deliveryId: Long) extends Command
-    case class Refused(course: Int, deliveryId: Long, reason: Reason) extends Command
-    case class Dropped(course: Int, deliveryId: Long) extends Command
+    case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
+    case class Quitted(course: Int, deliveryId: Long) extends Command
 
     case class Envelope(id: Int, command: Command)
 
@@ -63,11 +63,11 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected(course) = (true, true, deliveryId)
-                case Refused(course, deliveryId, _) =>
+                case Rejected(course, deliveryId, _) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected remove course
-                case Dropped(course, deliveryId) =>
+                case Quitted(course, deliveryId) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected.remove(course)
@@ -77,11 +77,11 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                         selected(course) = (true, false, deliveryId)
                         Course.Envelope(course, Course.Take(student = id, deliveryId))
                 }
-                case Drop(course) => deliver(courseRegion.path) {
+                case Quit(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (false, false, deliveryId)
-                        Course.Envelope(course, Course.Drop(student = id, deliveryId))
+                        Course.Envelope(course, Course.Quit(student = id, deliveryId))
                 }
             }
         }
@@ -106,7 +106,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     sessions remove course
                 }
             }
-        case m @ Refused(course, deliveryId, reason) =>
+        case m @ Rejected(course, deliveryId, reason) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
@@ -114,7 +114,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     sessions remove course
                 }
             }
-        case m @ Dropped(course, deliveryId) =>
+        case m @ Quitted(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
@@ -132,7 +132,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
-        case m @ Drop(course) =>
+        case m @ Quit(course) =>
             state.query(course) match {
                 case (false, false) => // do nothing
                 case (false, true) => sender() ! Success(student = id, course, target = false)
