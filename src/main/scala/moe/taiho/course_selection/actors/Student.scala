@@ -19,12 +19,14 @@ object Student {
     case class Taken(course: Int, deliveryId: Long) extends Command
     case class Refused(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Dropped(course: Int, deliveryId: Long) extends Command
+    case class DebugPrint(msg: String) extends Command
 
     case class Envelope(id: Int, command: Command)
 
+    sealed trait Info
     // Respond to frontend
-    case class Success(student: Int, course: Int, target: Boolean)
-    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason)
+    case class Success(student: Int, course: Int, target: Boolean) extends Info
+    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
@@ -103,6 +105,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 state.update(m)
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = true)
+                    log.warning(id + "success!")
                     sessions remove course
                 }
             }
@@ -111,6 +114,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 state.update(m)
                 sessions get course foreach { s =>
                     s ! Failure(student = id, course, target = false, reason)
+                    log.warning(id + "fail!")
                     sessions remove course
                 }
             }
@@ -141,6 +145,9 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
+        case m @ DebugPrint(msg) =>
+            log.warning(msg + id)
+            sender() ! "Recive"
         case _ => log.warning("unhandled message")
     }
 

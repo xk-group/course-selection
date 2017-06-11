@@ -39,6 +39,11 @@ dependencies {
     // For cluster metrics
     compile 'io.kamon:sigar-loader:1.6.6-rev002'
 
+    // For json support
+    // https://mvnrepository.com/artifact/com.typesafe.akka/akka-http-spray-json_2.12
+    compile group: 'com.typesafe.akka', name: 'akka-http-spray-json_2.12', version: '10.0.7'
+
+
     testCompile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.2'
     testCompile group: 'com.typesafe.akka', name: 'akka-http-testkit_2.12', version:'10.0.6'
 
@@ -46,6 +51,7 @@ dependencies {
     // TestNG is also supported by the Gradle Test task. Just change the
     // testCompile dependency to testCompile 'org.testng:testng:6.8.1' and add
     // 'test.useTestNG()' to your build script.
+
     testCompile 'junit:junit:4.12'
 }
 

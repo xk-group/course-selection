@@ -71,19 +71,26 @@ class Course extends PersistentActor {
                 // todo: do some check here
                 if (!state.isFull) persist(m) { m =>
                     state.update(m)
-                    sender() ! Student.Envelope(student, Student.Taken(id, deliveryId))
+                    log.warning("Taken")
+                    //sender() ! Student.Envelope(student, Student.Taken(id, deliveryId))
+                    sender() ! Student.Taken(id, deliveryId)
                 } else {
-                    sender() ! Student.Envelope(student, Student.Refused(id, deliveryId, CourseFull()))
+                    log.warning("Refuse")
+                    //sender() ! Student.Envelope(student, Student.Refused(id, deliveryId, CourseFull()))
+                    sender() ! Student.Refused(id, deliveryId, CourseFull())
                 }
             }
         case m @ Drop(student, deliveryId) =>
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
-                sender() ! Student.Envelope(student, Student.Dropped(id, deliveryId))
+                log.warning("Drope")
+                //sender() ! Student.Envelope(student, Student.Dropped(id, deliveryId))
+                sender() ! Student.Dropped(id, deliveryId)
             }
         case m @ SetLimit(_) => persist(m) {
             m => state.update(m)
         }
+        //case m @ DebugPrint(msg) => log.warning(msg + id)
         case _ => log.warning(s"unhandled message on Course $id")
     }
 
