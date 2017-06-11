@@ -1,21 +1,36 @@
 package moe.taiho.course_selection.actors
 
+import akka.cluster.Cluster
+import akka.cluster.ddata.Replicator.{Update, UpdateResponse, WriteLocal}
+import akka.cluster.ddata.{DistributedData, LWWMap, LWWMapKey}
 import akka.cluster.sharding.ShardRegion
 import akka.event.Logging
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
+import boopickle.CompositePickler
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.typesafe.config.ConfigFactory
+import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
 import moe.taiho.course_selection.actors.CommonMessage.Reason
 
 import scala.collection.mutable
 
 object Course {
 
-    sealed trait Command
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes(Array(
+        new JsonSubTypes.Type(value = classOf[SetLimit]),
+        new JsonSubTypes.Type(value = classOf[Take]),
+        new JsonSubTypes.Type(value = classOf[Quit])))
+    sealed trait Command extends JacksonSerializable with BoopickleSerializable
     case class SetLimit(num: Int) extends Command
     case class Take(student: Int, deliveryId: Long) extends Command
-    case class Drop(student: Int, deliveryId: Long) extends Command
+    case class Quit(student: Int, deliveryId: Long) extends Command
 
-    case class Envelope(id: Int, command: Command)
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
+
+    implicit val commandPickler = CompositePickler[Command]
+    implicit val envelopePickler = CompositePickler[Envelope]
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.course-shard-nr")
     val ShardName = "Course"
@@ -38,9 +53,14 @@ class Course extends PersistentActor {
 
     val log = Logging(context.system, this)
 
+    val replicator = DistributedData(context.system).replicator
+    implicit val node = Cluster(context.system)
+
+    val SharedDataKey = LWWMapKey[Int, Int]("Course")
+
     class State {
-        private var limit = 0
-        private var numSelected = 0
+        private[Course] var limit = 0
+        private[Course] var numSelected = 0
         private val selected: mutable.TreeMap[Int, (/*status*/Boolean, /*deliveryId*/Long)] = mutable.TreeMap()
 
         def isFull: Boolean = numSelected >= limit
@@ -52,9 +72,11 @@ class Course extends PersistentActor {
                 case Take(student, deliveryId) =>
                     assert(newer(student, deliveryId))
                     selected(student) = (true, deliveryId)
-                case Drop(student, deliveryId) =>
+                    numSelected += 1
+                case Quit(student, deliveryId) =>
                     assert(newer(student, deliveryId))
                     selected(student) = (false, deliveryId)
+                    numSelected -= 1
             }
         }
     }
@@ -63,6 +85,7 @@ class Course extends PersistentActor {
 
     override def receiveRecover: Receive = {
         case m: Command => state.update(m)
+        case RecoveryCompleted => replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
     }
 
     override def receiveCommand: Receive = {
@@ -71,26 +94,23 @@ class Course extends PersistentActor {
                 // todo: do some check here
                 if (!state.isFull) persist(m) { m =>
                     state.update(m)
-                    log.warning("Taken")
-                    //sender() ! Student.Envelope(student, Student.Taken(id, deliveryId))
+                    replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
                     sender() ! Student.Taken(id, deliveryId)
                 } else {
-                    log.warning("Refuse")
-                    //sender() ! Student.Envelope(student, Student.Refused(id, deliveryId, CourseFull()))
-                    sender() ! Student.Refused(id, deliveryId, CourseFull())
+                    sender() ! Student.Rejected(id, deliveryId, CourseFull())
                 }
             }
-        case m @ Drop(student, deliveryId) =>
+        case m @ Quit(student, deliveryId) =>
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
-                log.warning("Drope")
-                //sender() ! Student.Envelope(student, Student.Dropped(id, deliveryId))
-                sender() ! Student.Dropped(id, deliveryId)
+                replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
+                sender() ! Student.Quitted(id, deliveryId)
             }
         case m @ SetLimit(_) => persist(m) {
             m => state.update(m)
+                log.info(s"set limit ${m.num}")
         }
-        //case m @ DebugPrint(msg) => log.warning(msg + id)
+        case _: UpdateResponse[_] => // ignore
         case _ => log.warning(s"unhandled message on Course $id")
     }
 

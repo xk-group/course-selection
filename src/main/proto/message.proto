@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package course_selection;
+option java_package = "moe.taiho.course_selection";
+
+message SetLimit {
+    int32 limit = 1;
+}

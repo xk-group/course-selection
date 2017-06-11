@@ -9,24 +9,38 @@ import com.typesafe.config.ConfigFactory
 import scala.collection.mutable
 
 import CommonMessage.Reason
+import akka.persistence.AtLeastOnceDelivery.{UnconfirmedDelivery, UnconfirmedWarning}
+import boopickle.CompositePickler
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
+import boopickle.DefaultBasic._
 
 object Student {
-    sealed trait Command
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes(Array(
+        new JsonSubTypes.Type(value = classOf[Take]),
+        new JsonSubTypes.Type(value = classOf[Quit]),
+        new JsonSubTypes.Type(value = classOf[Taken]),
+        new JsonSubTypes.Type(value = classOf[Rejected]),
+        new JsonSubTypes.Type(value = classOf[Quitted])))
+    sealed trait Command extends JacksonSerializable with BoopickleSerializable
     // Requested by frontend
     case class Take(course: Int) extends Command
-    case class Drop(course: Int) extends Command
+    case class Quit(course: Int) extends Command
     // Course responses
     case class Taken(course: Int, deliveryId: Long) extends Command
-    case class Refused(course: Int, deliveryId: Long, reason: Reason) extends Command
-    case class Dropped(course: Int, deliveryId: Long) extends Command
-    case class DebugPrint(msg: String) extends Command
+    case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
+    case class Quitted(course: Int, deliveryId: Long) extends Command
 
-    case class Envelope(id: Int, command: Command)
+    implicit val commandPickler = CompositePickler[Command]
+    implicit val envelopePickler = CompositePickler[Envelope]
 
-    sealed trait Info
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
+
     // Respond to frontend
-    case class Success(student: Int, course: Int, target: Boolean) extends Info
-    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
+    case class Success(student: Int, course: Int, target: Boolean)
+    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason)
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
@@ -65,11 +79,11 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected(course) = (true, true, deliveryId)
-                case Refused(course, deliveryId, _) =>
+                case Rejected(course, deliveryId, _) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected remove course
-                case Dropped(course, deliveryId) =>
+                case Quitted(course, deliveryId) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected.remove(course)
@@ -79,11 +93,11 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                         selected(course) = (true, false, deliveryId)
                         Course.Envelope(course, Course.Take(student = id, deliveryId))
                 }
-                case Drop(course) => deliver(courseRegion.path) {
+                case Quit(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
                         selected(course) = (false, false, deliveryId)
-                        Course.Envelope(course, Course.Drop(student = id, deliveryId))
+                        Course.Envelope(course, Course.Quit(student = id, deliveryId))
                 }
             }
         }
@@ -105,20 +119,18 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 state.update(m)
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = true)
-                    log.warning(id + "success!")
                     sessions remove course
                 }
             }
-        case m @ Refused(course, deliveryId, reason) =>
+        case m @ Rejected(course, deliveryId, reason) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
                     s ! Failure(student = id, course, target = false, reason)
-                    log.warning(id + "fail!")
                     sessions remove course
                 }
             }
-        case m @ Dropped(course, deliveryId) =>
+        case m @ Quitted(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
                 sessions get course foreach { s =>
@@ -136,7 +148,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
-        case m @ Drop(course) =>
+        case m @ Quit(course) =>
             state.query(course) match {
                 case (false, false) => // do nothing
                 case (false, true) => sender() ! Success(student = id, course, target = false)
@@ -145,10 +157,8 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
-        case m @ DebugPrint(msg) =>
-            log.warning(msg + id)
-            sender() ! "Recive"
-        case _ => log.warning("unhandled message")
+        case _: UnconfirmedWarning => // ignore
+        case m => log.warning(s"unhandled message $m")
     }
 
     override def persistenceId: String = s"Student-$id"
