@@ -31,6 +31,7 @@ object Student {
     case class Taken(course: Int, deliveryId: Long) extends Command
     case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Quitted(course: Int, deliveryId: Long) extends Command
+    case class DebugPrint(msg: String) extends Command
 
     implicit val commandPickler = CompositePickler[Command]
     implicit val envelopePickler = CompositePickler[Envelope]
@@ -39,8 +40,9 @@ object Student {
     case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
 
     // Respond to frontend
-    case class Success(student: Int, course: Int, target: Boolean)
-    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason)
+    sealed trait Info
+    case class Success(student: Int, course: Int, target: Boolean) extends Info
+    case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
@@ -157,6 +159,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     state.update(m)
                 }
             }
+        case DebugPrint(msg) => sender() ! (id + "Receive " + msg)
         case _: UnconfirmedWarning => // ignore
         case m => log.warning(s"unhandled message $m")
     }

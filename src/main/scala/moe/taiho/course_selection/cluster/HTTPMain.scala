@@ -1,6 +1,6 @@
 package moe.taiho.course_selection.cluster
 
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.Done
@@ -10,22 +10,21 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
 import akka.http.scaladsl.model._
-
-import scala.io.StdIn
-
-import scala.concurrent.{Future, Promise}
-
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+import akka.pattern.ask
+import akka.pattern.after
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
+import akka.cluster.ddata.Replicator.{Changed, Subscribe}
+import akka.cluster.ddata.{DistributedData, LWWMapKey}
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
-import akka.pattern.ask
 import akka.util.Timeout
-import scala.concurrent.duration._
 
 import moe.taiho.course_selection.actors.{Course, Student}
 
-import moe.taiho.course_selection.actors.CommonMessage.Reason
+
+import scala.io.StdIn
 
 object WebServer extends App {
 
@@ -58,7 +57,7 @@ object WebServer extends App {
     }
 
     // set up Listener
-    system.actorOf(Props[NaiveClusterListener])
+    // system.actorOf(Props[NaiveClusterListener])
 
     // Http route
     implicit val materializer = ActorMaterializer()
@@ -101,7 +100,7 @@ object WebServer extends App {
             val studentID = studentId.toInt
             val courseID = courseId.toInt
             implicit val askTimeout: Timeout = 3.seconds // set timeout
-            onSuccess((studentRegion ? Student.Envelope(studentID, Student.Drop(courseID))).mapTo[Student.Info]) { res =>
+            onSuccess((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) { res =>
               res match {
                 case Student.Success(_, course, _) => complete(s"Successes drop course'$course'")
                 case Student.Failure(_, course, _, reason) => complete(s"Failed to drop course'$course' becasue of '$reason'")
@@ -132,25 +131,37 @@ object WebServer extends App {
       .onComplete(_ => system.terminate()) // and shutdown when done
 }
 
+/*
 class NaiveClusterListener extends Actor with ActorLogging {
-    val cluster = Cluster(context.system)
+  val replicator = DistributedData(context.system).replicator
+  implicit val node = Cluster(context.system)
 
-    override def preStart(): Unit = {
-        super.preStart()
-        cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
-    }
-    override def postStop(): Unit = cluster.unsubscribe(self)
+  val SharedDataKey = LWWMapKey[Int, Int]("Course")
 
-    override def receive: Receive = {
-        case MemberUp(member) =>
-            log.info("Member is Up: {}", member.address)
-        case UnreachableMember(member) =>
-            log.info("Member detected as unreachable: {}", member)
-        case MemberRemoved(member, previousStatus) =>
-            log.info(
-                "Member is Removed: {} after {}",
-                member.address, previousStatus)
-        case _: MemberEvent => // ignore
-    }
+  override def preStart(): Unit = {
+    super.preStart()
+    node.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
+    replicator ! Subscribe(SharedDataKey, self)
+  }
+  override def postStop(): Unit = node.unsubscribe(self)
+
+  case class Tick()
+  var total = 0
+  val tickTask = context.system.scheduler.schedule(5.seconds, 5.seconds, self, Tick)
+
+  override def receive: Receive = {
+    case MemberUp(member) =>
+      log.info("Member is Up: {}", member.address)
+    case UnreachableMember(member) =>
+      log.info("Member detected as unreachable: {}", member)
+    case MemberRemoved(member, previousStatus) =>
+      log.info(
+        "Member is Removed: {} after {}",
+        member.address, previousStatus)
+    case _: MemberEvent => // ignore
+    case c @ Changed(SharedDataKey) =>
+      total = c.get(SharedDataKey).entries.values.sum
+    case Tick => log.info(s"course all selected: ${total}")
+  }
 }
-
+*/
