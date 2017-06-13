@@ -80,3 +80,7 @@ atlassian-ide-plugin.xml
 
 # metrics extract dir
 target/
+# journal
+journal/
+# snapshot
+snapshots/

@@ -50,6 +50,10 @@ dependencies {
 
     compile 'io.suzaku:boopickle_2.12:1.2.6'
 
+    // Persistence
+    compile 'org.iq80.leveldb:leveldb:0.7'
+    compile 'org.fusesource.leveldbjni:leveldbjni-all:1.8'
+
     testCompile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.2'
     testCompile group: 'com.typesafe.akka', name: 'akka-http-testkit_2.12', version:'10.0.6'
 
