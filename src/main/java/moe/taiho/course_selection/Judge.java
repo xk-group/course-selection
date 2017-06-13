@@ -143,8 +143,6 @@ public class Judge implements Serializable {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
         }
 
         for (CourseJson j : courseJson) {
