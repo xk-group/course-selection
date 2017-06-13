@@ -81,6 +81,15 @@ public class Judge implements Serializable {
         }
     }
 
+    class CourseNotExists implements Reason, Serializable {
+        public CourseNotExists() {}
+
+        @Override
+        public String toString() {
+            return "Course number do not exist";
+        }
+    }
+
     public class JudgeResult {
         public boolean result;
         public Reason reason;
@@ -253,6 +262,11 @@ public class Judge implements Serializable {
 
     public JudgeResult registerCheck(int course) {
         JudgeResult ret = new JudgeResult(true, new Success());
+        if (course < 0 || course >= courseInfo.size()) {
+            ret.result = false;
+            ret.reason = new CourseNotExists();
+            return ret;
+        }
         if (!courseTable.duplicateCheck(course)) {
             ret.result = false;
             ret.reason = new Selected();
@@ -273,6 +287,11 @@ public class Judge implements Serializable {
 
     public JudgeResult dropCheck(int course) {
         JudgeResult ret = new JudgeResult(true, new Success());
+        if (course < 0 || course >= courseInfo.size()) {
+            ret.result = false;
+            ret.reason = new CourseNotExists();
+            return ret;
+        }
         if (courseTable.duplicateCheck(course)) {
             ret.result = false;
             ret.reason = new NotSelected();
