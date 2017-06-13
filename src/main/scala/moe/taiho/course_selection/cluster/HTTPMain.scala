@@ -82,7 +82,7 @@ object WebServer extends App {
         get {
           parameters('sid, 'cid) { (studentId, courseId) =>
             val studentID = studentId.toInt + 1
-            val courseID = courseId.toInt + 1
+            val courseID = courseId.toInt
             implicit val askTimeout: Timeout = 3.seconds // set timeout
             onSuccess((studentRegion ? Student.Envelope(studentID, Student.Take(courseID))).mapTo[Student.Info]) { res =>
               res match {
@@ -98,7 +98,7 @@ object WebServer extends App {
         get {
           parameters('sid, 'cid) { (studentId, courseId) =>
             val studentID = studentId.toInt + 1
-            val courseID = courseId.toInt + 1
+            val courseID = courseId.toInt
             implicit val askTimeout: Timeout = 3.seconds // set timeout
             onSuccess((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) { res =>
               res match {
@@ -110,7 +110,6 @@ object WebServer extends App {
           }
         }
       } ~
-/*
       path("table") {
         get {
           parameters('sid) { (studentId) =>
@@ -118,15 +117,13 @@ object WebServer extends App {
             implicit val askTimeout: Timeout = 3.seconds // set timeout
             onSuccess((studentRegion ? Student.Envelope(studentID, Student.Table())).mapTo[Student.Info]) { res =>
               res match {
-                case Student.Success(_, course, _) => complete(s"Successes drop course'$course'")
-                case Student.Failure(_, course, _, reason) => complete(s"Failed to drop course'$course' becasue of '$reason'")
+                case Student.Response(_, _, content) => complete(s"You have selected: '$content'")
                 case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
               }
             }
           }
         }
       } ~
-*/
   path("setlimit") {
       get {
         parameters('cid, 'size) { (courseId, size) =>

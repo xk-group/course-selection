@@ -15,6 +15,8 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
 import boopickle.DefaultBasic._
 
+import moe.taiho.course_selection.Judge;
+
 object Student {
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
     @JsonSubTypes(Array(
@@ -27,6 +29,7 @@ object Student {
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
+    case class Table() extends Command
     // Course responses
     case class Taken(course: Int, deliveryId: Long) extends Command
     case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
@@ -43,6 +46,8 @@ object Student {
     sealed trait Info
     case class Success(student: Int, course: Int, target: Boolean) extends Info
     case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
+    case class Query(student: Int, course: Int, content: String) extends Info
+    case class Response(student: Int, course: Int, content: String) extends Info
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
@@ -108,6 +113,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
     }
 
     var state = new State()
+    var judge = new Judge(id)
 
     val sessions: mutable.Map[Int, ActorRef] = mutable.TreeMap()
 
@@ -123,6 +129,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     s ! Success(student = id, course, target = true)
                     sessions remove course
                 }
+                judge.courseTable.addCourse(course)
             }
         case m @ Rejected(course, deliveryId, reason) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
@@ -139,26 +146,40 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     s ! Success(student = id, course, target = false)
                     sessions remove course
                 }
+                judge.courseTable.dropCourse(course)
             }
         case m @ Take(course) =>
             // todo: do some check here!
-            state.query(course) match {
-                case (true, false) => // do nothing
-                case (true, true) => sender() ! Success(student = id, course, target = true)
-                case _ => persist(m) { m =>
-                    sessions(course) = sender()
-                    state.update(m)
+            val ret = judge.registerCheck(course)
+            if (ret.result) {
+                state.query(course) match {
+                    case (true, false) => // do nothing
+                    case (true, true) => sender() ! Success(student = id, course, target = true)
+                    case _ => persist(m) { m =>
+                        sessions(course) = sender()
+                        state.update(m)
+                    }
                 }
+            } else {
+                sender() ! Failure(student = id, course, target = true, ret.reason)
             }
         case m @ Quit(course) =>
-            state.query(course) match {
-                case (false, false) => // do nothing
-                case (false, true) => sender() ! Success(student = id, course, target = false)
-                case _ => persist(m) { m =>
-                    sessions(course) = sender()
-                    state.update(m)
+            val ret = judge.dropCheck(course)
+            if (ret.result) {
+                state.query(course) match {
+                    case (false, false) => // do nothing
+                    case (false, true) => sender() ! Success(student = id, course, target = false)
+                    case _ => persist(m) { m =>
+                        sessions(course) = sender()
+                        state.update(m)
+                    }
                 }
+            } else {
+                sender() ! Failure(student = id, course, target = false, ret.reason)
             }
+        case m @ Table() =>
+            val ret = judge.showTable()
+            sender() ! Response(student = id, course = 0, content = ret)
         case DebugPrint(msg) => sender() ! (id + "Receive " + msg)
         case _: UnconfirmedWarning => // ignore
         case m => log.warning(s"unhandled message $m")
