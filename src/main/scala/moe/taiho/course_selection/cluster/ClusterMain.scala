@@ -59,7 +59,7 @@ object ClusterMain extends App {
             Future()
         }
         after(60 seconds, using = system.scheduler) {
-            for (s <- 1 to 10000; c <- 1 to 30) studentRegion ! Student.Envelope(id = s, Student.Take((s.hashCode+c).hashCode%2000+1))
+            //for (s <- 1 to 10000; c <- 1 to 30) studentRegion ! Student.Envelope(id = s, Student.Take((s.hashCode+c).hashCode%2000+1))
             Future()
         }
     }
