@@ -72,3 +72,14 @@ task exec(type:JavaExec) {
 shadowJar {
     mergeServiceFiles('reference.conf')
 }
+
+sourceSets {
+    main {
+        scala {
+            srcDirs = ['src/main/scala', 'src/main/java']
+        }
+        java {
+            srcDirs = []
+        }
+    }
+}
