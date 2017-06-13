@@ -7,14 +7,14 @@
  */
 
 
-//plugins {
-//    id "com.google.protobuf" version "0.8.1"
-//}
+plugins {
+    //id "com.google.protobuf" version "0.8.1"
+    id 'com.github.johnrengelman.shadow' version '2.0.0'
+}
 
 // Apply the java plugin to add support for Java
-apply plugin: 'java'
 apply plugin: 'scala'
-//apply plugin: 'application'
+apply plugin: 'java'
 
 // In this section you declare where to find the dependencies of your project
 repositories {
@@ -64,10 +64,11 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
-
 task exec(type:JavaExec) {
     main = project.hasProperty("mainClass") ? mainClass : ""
     classpath = sourceSets.main.runtimeClasspath
 }
 
-
+shadowJar {
+    mergeServiceFiles('reference.conf')
+}
