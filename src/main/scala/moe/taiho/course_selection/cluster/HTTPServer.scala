@@ -12,6 +12,7 @@ import akka.pattern.ask
 import akka.cluster.sharding.ClusterSharding
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
 
 import scala.concurrent.Future
@@ -95,7 +96,7 @@ object HTTPServer {
 					}
 				}
 			}
-		Http().bindAndHandle(route, "0.0.0.0", 8000)
+		Http().bindAndHandle(route, "0.0.0.0", ConfigFactory.load().getInt("course-selection.http-port"))
 	}
 }
 
