@@ -44,6 +44,7 @@ object ClusterMain extends App {
         )
     }
 
+    /*
     implicit val timeout = Timeout(5 seconds)
 
     if (cluster.selfRoles contains "node1") {
@@ -63,6 +64,7 @@ object ClusterMain extends App {
             Future()
         }
     }
+    */
 
 }
 
