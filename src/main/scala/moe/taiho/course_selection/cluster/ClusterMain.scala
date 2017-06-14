@@ -17,7 +17,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 object ClusterMain extends App {
-    val system = ActorSystem("CourseSelectSystem")
+    implicit val system = ActorSystem("CourseSelectSystem")
     val cluster = Cluster(system)
 
     val studentRegion = if (cluster.selfRoles contains "student") {
@@ -42,6 +42,12 @@ object ClusterMain extends App {
             Course.ShardName, Course.Role,
             Course.extractEntityId, Course.extractShardId
         )
+    }
+
+    if (cluster.selfRoles contains "http") {
+        val bindingFuture = HTTPServer.run(studentRegion, courseRegion)
+
+        println(s"Server online at http://0.0.0.0:8000/\nPress RETURN to stop...")
     }
 
     system.actorOf(Props[NaiveClusterListener])

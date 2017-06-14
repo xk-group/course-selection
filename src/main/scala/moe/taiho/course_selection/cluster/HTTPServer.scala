@@ -1,50 +1,35 @@
 package moe.taiho.course_selection.cluster
 
-import akka.actor.{ActorSystem}
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model._
+
 import scala.concurrent.duration._
 import akka.pattern.ask
-import akka.cluster.sharding.{ClusterSharding}
+import akka.cluster.sharding.ClusterSharding
+import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
-
 import moe.taiho.course_selection.actors.{Course, Student}
 
-
+import scala.concurrent.Future
 import scala.io.StdIn
 
-object WebServer extends App {
+object HTTPServer {
+	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Future[ServerBinding] = {
+		// Http route
+		implicit val materializer = ActorMaterializer()
+		// needed for the future flatMap/onComplete in the end
+		implicit val executionContext = system.dispatcher
 
-	// Set up StudentRegion/ CourseRegion
-	implicit val system = ActorSystem("CourseSelectSystem")
-
-	val studentRegion = ClusterSharding(system).startProxy(
-		Student.ShardName, Student.Role,
-		Student.extractEntityId, Student.extractShardId
-	)
-
-	val courseRegion = ClusterSharding(system).startProxy(
-		Course.ShardName, Course.Role,
-		Course.extractEntityId, Course.extractShardId
-	)
-
-	// set up Listener
-	// system.actorOf(Props[NaiveClusterListener])
-
-	// Http route
-	implicit val materializer = ActorMaterializer()
-	// needed for the future flatMap/onComplete in the end
-	implicit val executionContext = system.dispatcher
-
-	val route : Route=
-		path("hello") {
-			get {
-				complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
-			}
-		} ~
+		val route : Route=
+			path("hello") {
+				get {
+					complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
+				}
+			} ~
 			path("demo") {
 				get {
 					implicit val askTimeout: Timeout = 3.seconds // set timeout
@@ -110,13 +95,7 @@ object WebServer extends App {
 					}
 				}
 			}
-
-	val bindingFuture = Http().bindAndHandle(route, "0.0.0.0", 8000)
-
-	println(s"Server online at http://0.0.0.0:8000/\nPress RETURN to stop...")
-	StdIn.readLine() // let it run until user presses return
-	bindingFuture
-		.flatMap(_.unbind()) // trigger unbinding from the port
-		.onComplete(_ => system.terminate()) // and shutdown when done
+		Http().bindAndHandle(route, "0.0.0.0", 8000)
+	}
 }
 
