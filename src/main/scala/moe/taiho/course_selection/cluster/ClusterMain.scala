@@ -46,33 +46,10 @@ object ClusterMain extends App {
 
     if (cluster.selfRoles contains "http") {
         val bindingFuture = HTTPServer.run(studentRegion, courseRegion)
-
         println(s"Server online at http://0.0.0.0:8000/\nPress RETURN to stop...")
     }
 
     system.actorOf(Props[NaiveClusterListener])
-    /*
-    implicit val timeout = Timeout(5 seconds)
-
-    if (cluster.selfRoles contains "node1") {
-        system.actorOf(Props[NaiveClusterListener])
-        courseRegion ! Course.Envelope(1, Course.SetLimit(100))
-        after(15 seconds, using = system.scheduler) {
-            studentRegion ? Student.Envelope(id = 1, Student.Take(1))
-        } onComplete {
-            case Success(_: Student.Success) => println("success")
-        }
-        after(30 seconds, using = system.scheduler) {
-            for (c <- 1 to 2000) courseRegion ! Course.Envelope(c, Course.SetLimit(500))
-            Future()
-        }
-        after(60 seconds, using = system.scheduler) {
-            //for (s <- 1 to 10000; c <- 1 to 30) studentRegion ! Student.Envelope(id = s, Student.Take((s.hashCode+c).hashCode%2000+1))
-            Future()
-        }
-    }
-    */
-
 }
 
 class NaiveClusterListener extends Actor with ActorLogging {
