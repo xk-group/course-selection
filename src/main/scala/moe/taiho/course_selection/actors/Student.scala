@@ -7,25 +7,13 @@ import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
-
 import CommonMessage.Reason
-import akka.persistence.AtLeastOnceDelivery.{UnconfirmedDelivery, UnconfirmedWarning}
-import boopickle.CompositePickler
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
-import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
-import boopickle.DefaultBasic._
-
-import moe.taiho.course_selection.Judge;
+import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
+import moe.taiho.course_selection.KryoSerializable
+import moe.taiho.course_selection.Judge
 
 object Student {
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-    @JsonSubTypes(Array(
-        new JsonSubTypes.Type(value = classOf[Take]),
-        new JsonSubTypes.Type(value = classOf[Quit]),
-        new JsonSubTypes.Type(value = classOf[Taken]),
-        new JsonSubTypes.Type(value = classOf[Rejected]),
-        new JsonSubTypes.Type(value = classOf[Quitted])))
-    sealed trait Command extends JacksonSerializable with BoopickleSerializable
+    sealed trait Command extends KryoSerializable
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
@@ -36,14 +24,10 @@ object Student {
     case class Quitted(course: Int, deliveryId: Long) extends Command
     case class DebugPrint(msg: String) extends Command
 
-    implicit val commandPickler = CompositePickler[Command]
-    implicit val envelopePickler = CompositePickler[Envelope]
-
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
+    case class Envelope(id: Int, command: Command) extends KryoSerializable
 
     // Respond to frontend
-    sealed trait Info
+    sealed trait Info extends KryoSerializable
     case class Success(student: Int, course: Int, target: Boolean) extends Info
     case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
     case class Query(student: Int, course: Int, content: String) extends Info

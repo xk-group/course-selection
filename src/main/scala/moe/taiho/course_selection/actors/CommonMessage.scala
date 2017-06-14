@@ -1,5 +1,7 @@
 package moe.taiho.course_selection.actors
 
+import moe.taiho.course_selection.KryoSerializable
+
 object CommonMessage {
-    trait Reason {}
+    trait Reason extends KryoSerializable {}
 }

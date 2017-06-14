@@ -1,3 +1,3 @@
 package moe.taiho.course_selection
 
-trait JacksonSerializable {}
+trait KryoSerializable {}
