@@ -41,7 +41,7 @@ object WebServer extends App {
 
 	val route : Route=
 		path("hello") {
-			post {
+			get {
 				complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
 			}
 		} ~
