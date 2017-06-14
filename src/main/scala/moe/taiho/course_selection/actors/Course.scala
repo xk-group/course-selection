@@ -95,6 +95,7 @@ class Course extends PersistentActor {
                 if (!state.isFull) persist(m) { m =>
                     state.update(m)
                     replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
+                    log.info(s"\033[32m ${student} take ${id}\033[0m")
                     sender() ! Student.Taken(id, deliveryId)
                 } else {
                     sender() ! Student.Rejected(id, deliveryId, CourseFull())
@@ -104,6 +105,7 @@ class Course extends PersistentActor {
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
                 replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
+                log.info(s"\033[32m ${student} quit ${id}\033[0m")
                 sender() ! Student.Quitted(id, deliveryId)
             }
         case m @ SetLimit(_) => persist(m) {

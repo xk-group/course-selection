@@ -86,6 +86,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected(course) = (true, true, deliveryId)
+	                judge.courseTable.addCourse(course)
                 case Rejected(course, deliveryId, _) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
@@ -94,6 +95,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected.remove(course)
+	                judge.courseTable.dropCourse(course)
                 case Take(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
@@ -113,7 +115,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
     }
 
     var state = new State()
-    var judge = new Judge(id)
+    val judge = new Judge(id)
 
     val sessions: mutable.Map[Int, ActorRef] = mutable.TreeMap()
 
@@ -125,11 +127,11 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Taken(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
+                log.info(s"\033[32m ${id} take ${course}\033[0m")
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = true)
                     sessions remove course
                 }
-                judge.courseTable.addCourse(course)
             }
         case m @ Rejected(course, deliveryId, reason) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
@@ -142,25 +144,28 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Quitted(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
+                log.info(s"\033[32m ${id} quit ${course}\033[0m")
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = false)
                     sessions remove course
                 }
-                judge.courseTable.dropCourse(course)
             }
         case m @ Take(course) =>
             // todo: do some check here!
             val ret = judge.registerCheck(course)
+	        log.info("Here, I am ???")
             if (ret.result) {
                 state.query(course) match {
-                    case (true, false) => // do nothing
+                    case (true, false) => log.info("Here, I am ***")// do nothing
                     case (true, true) => sender() ! Success(student = id, course, target = true)
                     case _ => persist(m) { m =>
                         sessions(course) = sender()
+	                    log.info("Here, I am ...")
                         state.update(m)
                     }
                 }
             } else {
+	            log.info("Here, I am ---")
                 sender() ! Failure(student = id, course, target = true, ret.reason)
             }
         case m @ Quit(course) =>
