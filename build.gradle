@@ -80,6 +80,9 @@ task exec(type:JavaExec) {
 
 shadowJar {
     mergeServiceFiles('reference.conf')
+    manifest {
+        attributes('Main-Class': 'moe.taiho.course_selection.cluster.ClusterMain')
+    }
 }
 
 sourceSets {
