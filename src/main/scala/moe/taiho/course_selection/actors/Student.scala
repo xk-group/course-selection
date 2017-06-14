@@ -182,7 +182,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             sender() ! Response(student = id, course = 0, content = ret)
         case DebugPrint(msg) => sender() ! (id + "Receive " + msg)
         case _: UnconfirmedWarning => // ignore
-        case m => log.warning(s"unhandled message $m")
+        case m => log.warning(s"\033[31munhandled message $m\033[0m")
     }
 
     override def persistenceId: String = s"Student-$id"
