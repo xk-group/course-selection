@@ -8,32 +8,40 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
 import CommonMessage.Reason
-import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
-import moe.taiho.course_selection.KryoSerializable
-import moe.taiho.course_selection.Judge
+import akka.persistence.AtLeastOnceDelivery.{UnconfirmedDelivery, UnconfirmedWarning}
+import boopickle.CompositePickler
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+import moe.taiho.course_selection.{BoopickleSerializable, JacksonSerializable}
+import boopickle.DefaultBasic._
 
 object Student {
-    sealed trait Command extends KryoSerializable
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes(Array(
+        new JsonSubTypes.Type(value = classOf[Take]),
+        new JsonSubTypes.Type(value = classOf[Quit]),
+        new JsonSubTypes.Type(value = classOf[Taken]),
+        new JsonSubTypes.Type(value = classOf[Rejected]),
+        new JsonSubTypes.Type(value = classOf[Quitted])))
+    sealed trait Command extends JacksonSerializable with BoopickleSerializable
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
-    case class Table() extends Command
     // Course responses
     case class Taken(course: Int, deliveryId: Long) extends Command
     case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Quitted(course: Int, deliveryId: Long) extends Command
     case class DebugPrint(msg: String) extends Command
 
-    case class Envelope(id: Int, command: Command) extends KryoSerializable
+    implicit val commandPickler = CompositePickler[Command]
+    implicit val envelopePickler = CompositePickler[Envelope]
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    case class Envelope(id: Int, command: Command) extends JacksonSerializable with BoopickleSerializable
+
+    sealed trait Info
     // Respond to frontend
-    sealed trait Info extends KryoSerializable
     case class Success(student: Int, course: Int, target: Boolean) extends Info
     case class Failure(student: Int, course: Int, target: Boolean, reason: Reason) extends Info
-    case class Query(student: Int, course: Int, content: String) extends Info
-    case class Response(student: Int, course: Int, content: String) extends Info
-
-    case class DupRequest() extends Reason
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.student-shard-nr")
     val ShardName = "Student"
@@ -72,7 +80,6 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected(course) = (true, true, deliveryId)
-	                judge.courseTable.addCourse(course)
                 case Rejected(course, deliveryId, _) =>
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
@@ -81,7 +88,6 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                     assert(effective(course, deliveryId))
                     confirmDelivery(deliveryId)
                     selected.remove(course)
-	                judge.courseTable.dropCourse(course)
                 case Take(course) => deliver(courseRegion.path) {
                     deliveryId =>
                         selected get course foreach { t => if (!t._2) confirmDelivery(t._3) }
@@ -101,7 +107,6 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
     }
 
     var state = new State()
-    val judge = new Judge(id)
 
     val sessions: mutable.Map[Int, ActorRef] = mutable.TreeMap()
 
@@ -113,9 +118,9 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Taken(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
-                //log.info(s"\033[32m ${id} take ${course}\033[0m")
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = true)
+                    log.warning(id + "success!")
                     sessions remove course
                 }
             }
@@ -124,13 +129,13 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
                 state.update(m)
                 sessions get course foreach { s =>
                     s ! Failure(student = id, course, target = false, reason)
+                    log.warning(id + "fail!")
                     sessions remove course
                 }
             }
         case m @ Quitted(course, deliveryId) =>
             if (state.effective(course, deliveryId)) persist(m) { m =>
                 state.update(m)
-                //log.info(s"\033[32m ${id} quit ${course}\033[0m")
                 sessions get course foreach { s =>
                     s ! Success(student = id, course, target = false)
                     sessions remove course
@@ -138,47 +143,28 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             }
         case m @ Take(course) =>
             // todo: do some check here!
-            sessions get course foreach { s =>
-                s ! Failure(student = id, course, target = true, DupRequest())
-	            sessions remove course
-            }
-            val ret = judge.registerCheck(course)
-            if (ret.result) {
-                state.query(course) match {
-                    case (true, false) => // do nothing
-                    case (true, true) => sender() ! Success(student = id, course, target = true)
-                    case _ => persist(m) { m =>
-                        sessions(course) = sender()
-                        state.update(m)
-                    }
+            state.query(course) match {
+                case (true, false) => // do nothing
+                case (true, true) => sender() ! Success(student = id, course, target = true)
+                case _ => persist(m) { m =>
+                    sessions(course) = sender()
+                    state.update(m)
                 }
-            } else {
-                sender() ! Failure(student = id, course, target = true, ret.reason)
             }
         case m @ Quit(course) =>
-            sessions get course foreach { s =>
-                s ! Failure(student = id, course, target = true, DupRequest())
-                sessions remove course
-            }
-            val ret = judge.dropCheck(course)
-            if (ret.result) {
-                state.query(course) match {
-                    case (false, false) => // do nothing
-                    case (false, true) => sender() ! Success(student = id, course, target = false)
-                    case _ => persist(m) { m =>
-                        sessions(course) = sender()
-                        state.update(m)
-                    }
+            state.query(course) match {
+                case (false, false) => // do nothing
+                case (false, true) => sender() ! Success(student = id, course, target = false)
+                case _ => persist(m) { m =>
+                    sessions(course) = sender()
+                    state.update(m)
                 }
-            } else {
-                sender() ! Failure(student = id, course, target = false, ret.reason)
             }
-        case m @ Table() =>
-            val ret = judge.showTable()
-            sender() ! Response(student = id, course = 0, content = ret)
-        case DebugPrint(msg) => sender() ! (id + "Receive " + msg)
+        case m @ DebugPrint(msg) =>
+            log.warning(msg + id)
+            sender() ! "Recive"
         case _: UnconfirmedWarning => // ignore
-        case m => log.warning(s"\033[31munhandled message $m\033[0m")
+        case m => log.warning(s"unhandled message $m")
     }
 
     override def persistenceId: String = s"Student-$id"

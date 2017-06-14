@@ -17,6 +17,7 @@ import moe.taiho.course_selection.actors.{Course, Student}
 
 import scala.concurrent.Future
 import scala.io.StdIn
+import scala.util.Success
 
 object HTTPServer {
 	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Future[ServerBinding] = {
@@ -33,9 +34,10 @@ object HTTPServer {
 			} ~
 			path("demo") {
 				post {
-					implicit val askTimeout: Timeout = 3.seconds // set timeout
-					onSuccess((studentRegion ? Student.Envelope(10086, Student.DebugPrint("Debug Message"))).mapTo[String]) { result =>
-						complete(result)
+					implicit val askTimeout: Timeout = 10.seconds // set timeout
+					onComplete((studentRegion ? Student.Envelope(10086, Student.DebugPrint("Debug Message"))).mapTo[String]) {
+						case Success(result) => complete(result)
+						case _ => complete(HttpResponse(502, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 					}
 				}
 			} ~
@@ -44,13 +46,15 @@ object HTTPServer {
 					parameters('sid, 'cid) { (studentId, courseId) =>
 						val studentID = studentId.toInt + 1
 						val courseID = courseId.toInt
-						implicit val askTimeout: Timeout = 3.seconds // set timeout
-						onSuccess((studentRegion ? Student.Envelope(studentID, Student.Take(courseID))).mapTo[Student.Info]) { res =>
-							res match {
-								case Student.Success(_, course, _) => complete(s"Successes take course'$course'")
-								case Student.Failure(_, course, _, reason) => complete(s"Failed to take course'$course' becasue of '$reason'")
-								case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
-							}
+						implicit val askTimeout: Timeout = 30.seconds // set timeout
+						onComplete((studentRegion ? Student.Envelope(studentID, Student.Take(courseID))).mapTo[Student.Info]) {
+							case Success(res) =>
+								res match {
+									case Student.Success(_, course, _) => complete(s"Successes take course'$course'")
+									case Student.Failure(_, course, _, reason) => complete(s"Failed to take course'$course' becasue of '$reason'")
+									case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
+								}
+							case _ => complete(HttpResponse(502, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 						}
 					}
 				}
@@ -60,13 +64,15 @@ object HTTPServer {
 					parameters('sid, 'cid) { (studentId, courseId) =>
 						val studentID = studentId.toInt + 1
 						val courseID = courseId.toInt
-						implicit val askTimeout: Timeout = 3.seconds // set timeout
-						onSuccess((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) { res =>
-							res match {
+						implicit val askTimeout: Timeout = 10.seconds // set timeout
+						onComplete((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) {
+							case Success(res) =>
+								res match {
 								case Student.Success(_, course, _) => complete(s"Successes drop course'$course'")
 								case Student.Failure(_, course, _, reason) => complete(s"Failed to drop course'$course' becasue of '$reason'")
 								case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
 							}
+							case _ => complete(HttpResponse(502, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 						}
 					}
 				}
@@ -75,12 +81,14 @@ object HTTPServer {
 				post {
 					parameters('sid) { (studentId) =>
 						val studentID = studentId.toInt + 1
-						implicit val askTimeout: Timeout = 3.seconds // set timeout
-						onSuccess((studentRegion ? Student.Envelope(studentID, Student.Table())).mapTo[Student.Info]) { res =>
-							res match {
-								case Student.Response(_, _, content) => complete(s"You have selected: '$content'")
-								case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
-							}
+						implicit val askTimeout: Timeout = 10.seconds // set timeout
+						onComplete((studentRegion ? Student.Envelope(studentID, Student.Table())).mapTo[Student.Info]) {
+							case Success(res) =>
+								res match {
+									case Student.Response(_, _, content) => complete(s"You have selected: '$content'")
+									case _ => complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Something Wrong</h1>"))
+								}
+							case _ => complete(HttpResponse(502, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 						}
 					}
 				}
@@ -90,7 +98,7 @@ object HTTPServer {
 					parameters('cid, 'size) { (courseId, size) =>
 						val courseID = courseId.toInt
 						val lim = size.toInt
-						implicit val askTimeout: Timeout = 3.seconds // set timeout
+						implicit val askTimeout: Timeout = 10.seconds // set timeout
 						courseRegion ! Course.Envelope(courseID, Course.SetLimit(lim))
 						complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Set Successfully!</h1>"))
 					}
