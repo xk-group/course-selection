@@ -153,19 +153,16 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
         case m @ Take(course) =>
             // todo: do some check here!
             val ret = judge.registerCheck(course)
-	        log.info("Here, I am ???")
             if (ret.result) {
                 state.query(course) match {
-                    case (true, false) => log.info("Here, I am ***")// do nothing
+                    case (true, false) => // do nothing
                     case (true, true) => sender() ! Success(student = id, course, target = true)
                     case _ => persist(m) { m =>
                         sessions(course) = sender()
-	                    log.info("Here, I am ...")
                         state.update(m)
                     }
                 }
             } else {
-	            log.info("Here, I am ---")
                 sender() ! Failure(student = id, course, target = true, ret.reason)
             }
         case m @ Quit(course) =>

@@ -41,12 +41,12 @@ object WebServer extends App {
 
 	val route : Route=
 		path("hello") {
-			get {
+			post {
 				complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
 			}
 		} ~
 			path("demo") {
-				get {
+				post {
 					implicit val askTimeout: Timeout = 3.seconds // set timeout
 					onSuccess((studentRegion ? Student.Envelope(10086, Student.DebugPrint("Debug Message"))).mapTo[String]) { result =>
 						complete(result)
@@ -54,7 +54,7 @@ object WebServer extends App {
 				}
 			} ~
 			path("take") {
-				get {
+				post {
 					parameters('sid, 'cid) { (studentId, courseId) =>
 						val studentID = studentId.toInt + 1
 						val courseID = courseId.toInt
@@ -70,7 +70,7 @@ object WebServer extends App {
 				}
 			} ~
 			path("quit") {
-				get {
+				post {
 					parameters('sid, 'cid) { (studentId, courseId) =>
 						val studentID = studentId.toInt + 1
 						val courseID = courseId.toInt
@@ -86,7 +86,7 @@ object WebServer extends App {
 				}
 			} ~
 			path("table") {
-				get {
+				post {
 					parameters('sid) { (studentId) =>
 						val studentID = studentId.toInt + 1
 						implicit val askTimeout: Timeout = 3.seconds // set timeout
@@ -100,7 +100,7 @@ object WebServer extends App {
 				}
 			} ~
 			path("setlimit") {
-				get {
+				post {
 					parameters('cid, 'size) { (courseId, size) =>
 						val courseID = courseId.toInt
 						val lim = size.toInt
