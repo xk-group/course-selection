@@ -96,9 +96,12 @@ class Course extends PersistentActor {
                 log.info(s"\033[32m ${student} quit ${id}\033[0m")
                 sender() ! Student.Quitted(id, deliveryId)
             }
-        case m @ SetLimit(_) => persist(m) {
+        case m @ SetLimit(_) => 
+            val t0 = System.nanoTime()
+            persist(m) {
             m => state.update(m)
-                log.info(s"\033[32mset limit ${m.num}\033[0m")
+                val t1 = System.nanoTime()
+                log.info(s"\033[32mset limit ${m.num} time ${(t1-t0)/1000000} ms\033[0m")
         }
         case _: UpdateResponse[_] => // ignore
         case _ => log.warning(s"\033[32munhandled message on Course $id\033[0m")
