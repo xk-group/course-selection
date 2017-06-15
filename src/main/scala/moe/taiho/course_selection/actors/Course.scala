@@ -1,5 +1,6 @@
 package moe.taiho.course_selection.actors
 
+import akka.Done
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator.{Update, UpdateResponse, WriteLocal}
 import akka.cluster.ddata.{DistributedData, LWWMap, LWWMapKey}
@@ -83,7 +84,7 @@ class Course extends PersistentActor {
                 if (!state.isFull) persist(m) { m =>
                     state.update(m)
                     replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
-                    log.info(s"\033[32m ${student} take ${id}\033[0m")
+                    //log.info(s"\033[32m ${student} take ${id}\033[0m")
                     sender() ! Student.Taken(id, deliveryId)
                 } else {
                     sender() ! Student.Rejected(id, deliveryId, CourseFull())
@@ -93,7 +94,7 @@ class Course extends PersistentActor {
             if (state.newer(student, deliveryId)) persist(m) { m =>
                 state.update(m)
                 replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
-                log.info(s"\033[32m ${student} quit ${id}\033[0m")
+                //log.info(s"\033[32m ${student} quit ${id}\033[0m")
                 sender() ! Student.Quitted(id, deliveryId)
             }
         case m @ SetLimit(_) => 
@@ -102,7 +103,8 @@ class Course extends PersistentActor {
             m => state.update(m)
                 val t1 = System.nanoTime()
                 log.info(s"\033[32mset limit ${m.num} time ${(t1-t0)/1000000} ms\033[0m")
-        }
+            }
+	        sender() ! Done
         case _: UpdateResponse[_] => // ignore
         case _ => log.warning(s"\033[32munhandled message on Course $id\033[0m")
     }

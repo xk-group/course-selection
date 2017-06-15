@@ -15,6 +15,7 @@ import moe.taiho.course_selection.actors.{Course, Student}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import com.typesafe.config.ConfigFactory
 
 object ClusterMain extends App {
     implicit val system = ActorSystem("CourseSelectSystem")
@@ -46,7 +47,8 @@ object ClusterMain extends App {
 
     if (cluster.selfRoles contains "http") {
         val bindingFuture = HTTPServer.run(studentRegion, courseRegion)
-        println(s"Server online at http://0.0.0.0:8000/\nPress RETURN to stop...")
+        val http_port = ConfigFactory.load().getInt("course-selection.http-port")
+        println(s"Server online at http://0.0.0.0:${http_port}/\nPress RETURN to stop...")
     }
 
     system.actorOf(Props[NaiveClusterListener])
