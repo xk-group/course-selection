@@ -31,7 +31,9 @@ dependencies {
     testCompile 'org.scalatest:scalatest_2.12:3.0.0'
 
     // The production code uses the SLF4J logging API at compile time
-    compile 'org.slf4j:slf4j-api:1.7.22'
+    //provided 'org.slf4j:slf4j-api:1.7.22'
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
+    compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
 
     compile group: 'com.typesafe.akka', name: 'akka-actor_2.12', version: '2.5.2'
     compile group: 'com.typesafe.akka', name: 'akka-http_2.12', version:'10.0.6'

@@ -12,18 +12,23 @@ object PersistenceBench extends App {
 case class Go() extends KryoSerializable
 case class Run(count: Int, res: ActorRef) extends KryoSerializable
 case class Finish() extends KryoSerializable
+case class Ping() extends KryoSerializable
 
 class BenchDriver extends Actor {
     var starttime: Long = 0
     var endtime: Long = 0
     var finished: Int = 0
-    val concurrency: Int = 500
-    val totalcount: Int = 10
+    val concurrency: Int = 50
+    val totalcount: Int = 100
     override def receive: Receive = {
         case _: Go =>
-            starttime = System.nanoTime()
             for (i <- 0 until concurrency) {
                 val bench = context.actorOf(Props[BenchActor], i.toString)
+                bench ! Ping()
+            }
+            starttime = System.nanoTime()
+            for (i <- 0 until concurrency) {
+                val bench = context.actorSelection(i.toString)
                 bench ! Run(totalcount, self)
             }
         case _: Finish =>
@@ -38,7 +43,7 @@ class BenchDriver extends Actor {
 
 class BenchActor extends PersistentActor {
     override def receiveRecover: Receive = {
-        case RecoveryCompleted => println("complete rec")
+        case RecoveryCompleted => //println("complete rec")
     }
 
     /*
@@ -64,6 +69,7 @@ class BenchActor extends PersistentActor {
                     self ! Run(count - 1, res)
                 }
             }
+        case _: Ping =>
     }
     // and also try deferAsync
 
