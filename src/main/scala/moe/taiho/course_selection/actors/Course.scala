@@ -99,8 +99,8 @@ class Course extends PersistentActor {
             }
         case m @ SetLimit(_) => 
             val t0 = System.nanoTime()
-            persistAsync(m) {
-            m => state.update(m)
+            persist(m) {
+                m => state.update(m)
                 val t1 = System.nanoTime()
                 log.info(s"\033[32mset limit ${m.num} time ${(t1-t0)/1000000} ms\033[0m")
             }

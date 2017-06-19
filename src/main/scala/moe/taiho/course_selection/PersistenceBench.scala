@@ -18,8 +18,8 @@ class BenchDriver extends Actor {
     var starttime: Long = 0
     var endtime: Long = 0
     var finished: Int = 0
-    val concurrency: Int = 50
-    val totalcount: Int = 100
+    val concurrency: Int = 25000
+    val totalcount: Int = 10
     override def receive: Receive = {
         case _: Go =>
             for (i <- 0 until concurrency) {
@@ -62,7 +62,7 @@ class BenchActor extends PersistentActor {
 
     override def receiveCommand: Receive = {
         case m@Run(count, res) =>
-            persistAsync(m) { m =>
+            persist(m) { m =>
                 if (count <= 1) {
                     res ! Finish()
                 } else {
