@@ -1,7 +1,7 @@
 package moe.taiho.course_selection
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.persistence.PersistentActor
+import akka.persistence.{PersistentActor, RecoveryCompleted}
 
 object PersistenceBench extends App {
     val system = ActorSystem("PersistenceBench")
@@ -17,18 +17,18 @@ class BenchDriver extends Actor {
     var starttime: Long = 0
     var endtime: Long = 0
     var finished: Int = 0
-    val concurrency: Int = 50
-    val totalcount: Int = 100
+    val concurrency: Int = 500
+    val totalcount: Int = 10
     override def receive: Receive = {
         case _: Go =>
-            val bench = context.actorOf(Props[BenchActor])
             starttime = System.nanoTime()
             for (i <- 0 until concurrency) {
+                val bench = context.actorOf(Props[BenchActor], i.toString)
                 bench ! Run(totalcount, self)
             }
         case _: Finish =>
             finished += 1
-            if (finished == 1) {
+            if (finished == concurrency) {
                 endtime = System.nanoTime()
                 println(s"Elapsed time: ${(endtime-starttime)/1000000} ms")
                 context.system.terminate()
@@ -38,9 +38,10 @@ class BenchDriver extends Actor {
 
 class BenchActor extends PersistentActor {
     override def receiveRecover: Receive = {
-        case _ =>
+        case RecoveryCompleted => println("complete rec")
     }
-    
+
+    /*
     override def receiveCommand: Receive = {
         case m@Run(count, res) =>
             persist(m) { m =>
@@ -51,20 +52,20 @@ class BenchActor extends PersistentActor {
                 }
             }
     }
+    */
     // Compare:
-    /*
+
     override def receiveCommand: Receive = {
-        case m@Run(count, res) => deferAsync(m) { m =>
+        case m@Run(count, res) =>
             persistAsync(m) { m =>
-                if (count == 0) {
+                if (count <= 1) {
                     res ! Finish()
                 } else {
                     self ! Run(count - 1, res)
                 }
             }
-        }
     }
-    */
+    // and also try deferAsync
 
     override def persistenceId: String = self.path.parent.name + "-" + self.path.name
 }
