@@ -17,13 +17,14 @@ class BenchDriver extends Actor {
     var starttime: Long = 0
     var endtime: Long = 0
     var finished: Int = 0
-    val total: Int = 500
+    val concurrency: Int = 50
+    val totalcount: Int = 100
     override def receive: Receive = {
         case _: Go =>
             val bench = context.actorOf(Props[BenchActor])
             starttime = System.nanoTime()
-            for (i <- 0 until total) {
-                bench ! Run(10, self)
+            for (i <- 0 until concurrency) {
+                bench ! Run(totalcount, self)
             }
         case _: Finish =>
             finished += 1
@@ -39,16 +40,31 @@ class BenchActor extends PersistentActor {
     override def receiveRecover: Receive = {
         case _ =>
     }
-
-    override def receiveCommand: Receive = { case m => deferAsync(m) {
-        case m@Run(count, res) => persistAsync(m) { m =>
-            if (count == 0) {
-                res ! Finish()
-            } else {
-                self ! Run(count - 1, res)
+    
+    override def receiveCommand: Receive = {
+        case m@Run(count, res) =>
+            persist(m) { m =>
+                if (count == 0) {
+                    res ! Finish()
+                } else {
+                    self ! Run(count - 1, res)
+                }
+            }
+    }
+    // Compare:
+    /*
+    override def receiveCommand: Receive = {
+        case m@Run(count, res) => deferAsync(m) { m =>
+            persistAsync(m) { m =>
+                if (count == 0) {
+                    res ! Finish()
+                } else {
+                    self ! Run(count - 1, res)
+                }
             }
         }
-    }}
+    }
+    */
 
     override def persistenceId: String = self.path.parent.name + "-" + self.path.name
 }
