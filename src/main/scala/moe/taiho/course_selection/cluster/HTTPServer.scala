@@ -22,14 +22,16 @@ import scala.util.{Success, Try}
 
 class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
 	def pingUntilPong(reciver : String, id : Int): Unit = {
+		print(s"\033[32m ${id}\033[0m")
 		reciver match {
 			case "student" =>
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
-				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Course.Pong] onComplete {
+				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Student.Pong] onComplete {
 					case Success(_) => return
 					case _ => pingUntilPong("student", id)
 				}
 			case "course" =>
+				courseRegion ! Course.Envelope(id, Course.Ping())
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
 				((courseRegion ? Course.Envelope(id, Course.Ping())).mapTo[Course.Pong]) onComplete {
 					case Success(_)  => return
@@ -75,7 +77,7 @@ object HTTPServer {
 					val ping = new Pinger(studentRegion, courseRegion)
 					ping.ping()
 					val t1 = System.nanoTime()
-					complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>ping all actor in ${(t1-t0)/1000000} ms</h1>"))
+					complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, s"<h1>ping all actor in ${(t1-t0)/1000000} ms</h1>"))
 				}
 			} ~
 			path("demo") {

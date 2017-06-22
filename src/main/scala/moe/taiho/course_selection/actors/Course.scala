@@ -116,6 +116,6 @@ class Course extends PersistentActor {
     override def persistenceId: String = s"Course-$id"
 
     override def preStart(): Unit = {
-        log.warning(id + "is up.")
+	    log.warning(s"\033[32m ${id} is up! \033[0m")
     }
 }
