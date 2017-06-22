@@ -1,6 +1,7 @@
 package moe.taiho.course_selection.actors
 
 import akka.Done
+import akka.actor.ActorRef
 import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator.{Update, UpdateResponse, WriteLocal}
 import akka.cluster.ddata.{DistributedData, LWWMap, LWWMapKey}
@@ -42,10 +43,10 @@ class Course extends PersistentActor {
 
     val log = Logging(context.system, this)
 
-    val replicator = DistributedData(context.system).replicator
+    val replicator: ActorRef = DistributedData(context.system).replicator
     implicit val node = Cluster(context.system)
 
-    val SharedDataKey = LWWMapKey[Int, Int]("Course")
+    val SharedDataKey: LWWMapKey[Int, Int] = LWWMapKey[Int, Int]("Course")
 
     class State {
         private[Course] var limit = 0
@@ -99,8 +100,8 @@ class Course extends PersistentActor {
             }
         case m @ SetLimit(_) => 
             val t0 = System.nanoTime()
-            persist(m) {
-                m => state.update(m)
+            persist(m) { m =>
+                state.update(m)
                 val t1 = System.nanoTime()
                 log.info(s"\033[32mset limit ${m.num} time ${(t1-t0)/1000000} ms\033[0m")
             }
