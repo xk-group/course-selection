@@ -14,10 +14,13 @@ import moe.taiho.course_selection.actors.CommonMessage.Reason
 import scala.collection.mutable
 
 object Course {
+
     sealed trait Command extends KryoSerializable
     case class SetLimit(num: Int) extends Command
     case class Take(student: Int, deliveryId: Long) extends Command
     case class Quit(student: Int, deliveryId: Long) extends Command
+    case class Ping() extends Command
+	case class Pong()
 
     case class Envelope(id: Int, command: Command) extends KryoSerializable
 
@@ -105,9 +108,14 @@ class Course extends PersistentActor {
                 log.info(s"\033[32mset limit ${m.num} time ${(t1-t0)/1000000} ms\033[0m")
             }
 	        sender() ! Done
+        case m : Ping => sender() ! Pong()
         case _: UpdateResponse[_] => // ignore
         case _ => log.warning(s"\033[32munhandled message on Course $id\033[0m")
     }
 
     override def persistenceId: String = s"Course-$id"
+
+    override def preStart(): Unit = {
+        log.warning(id + "is up.")
+    }
 }

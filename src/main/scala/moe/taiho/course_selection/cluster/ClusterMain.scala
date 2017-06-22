@@ -2,19 +2,14 @@ package moe.taiho.course_selection.cluster
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
-import akka.pattern.ask
-import akka.pattern.after
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.ddata.Replicator.{Changed, Subscribe}
 import akka.cluster.ddata.{DistributedData, LWWMapKey}
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
-import akka.util.Timeout
 import moe.taiho.course_selection.actors.{Course, Student}
 
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
 import com.typesafe.config.ConfigFactory
 
 object ClusterMain extends App {

@@ -7,20 +7,56 @@ import akka.stream.ActorMaterializer
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.duration._
 import akka.pattern.ask
-import akka.cluster.sharding.ClusterSharding
+import scala.io.Source
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
 
 import scala.concurrent.Future
-import scala.io.StdIn
 import scala.util.{Success, Try}
 
+class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
+	def pingUntilPong(reciver : String, id : Int): Unit = {
+		reciver match {
+			case "student" =>
+				implicit val askTimeout: Timeout = 10.seconds // set timeout
+				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Course.Pong] onComplete {
+					case Success(_) => return
+					case _ => pingUntilPong("student", id)
+				}
+			case "course" =>
+				implicit val askTimeout: Timeout = 10.seconds // set timeout
+				((courseRegion ? Course.Envelope(id, Course.Ping())).mapTo[Course.Pong]) onComplete {
+					case Success(_)  => return
+					case _ => pingUntilPong("course", id) // redo it
+				}
+			case _ => // Do nothing
+		}
+	}
+	def pingStudent(configFn : String): Unit = {
+		for (studentID <- Source.fromResource(configFn).getLines) {
+			pingUntilPong("student", studentID.toInt)
+		}
+	}
+
+	def pingCourse(configFn : String): Unit = {
+		for (courseID <- Source.fromResource(configFn).getLines) {
+			pingUntilPong("course", courseID.toInt)
+		}
+	}
+	def ping() {
+		pingStudent ("student_id.conf")
+		pingCourse ("course_id.conf")
+	}
+}
+
 object HTTPServer {
+
 	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Future[ServerBinding] = {
 		// Http route
 		implicit val materializer = ActorMaterializer()
@@ -31,6 +67,15 @@ object HTTPServer {
 			path("hello") {
 				get {
 					complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
+				}
+			} ~
+			path("ping") {
+				get {
+					val t0 = System.nanoTime()
+					val ping = new Pinger(studentRegion, courseRegion)
+					ping.ping()
+					val t1 = System.nanoTime()
+					complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>ping all actor in ${(t1-t0)/1000000} ms</h1>"))
 				}
 			} ~
 			path("demo") {
@@ -69,10 +114,10 @@ object HTTPServer {
 						onComplete((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) {
 							case Success(res) =>
 								res match {
-								case Student.Success(_, course, _) => complete(s"Successes drop course'$course'")
-								case Student.Failure(_, course, _, reason) => complete(s"Failed to drop course'$course' becasue of '$reason'")
-								case _ => complete(HttpResponse(502, entity = "Something Wrong"))
-							}
+									case Student.Success(_, course, _) => complete(s"Successes drop course'$course'")
+									case Student.Failure(_, course, _, reason) => complete(s"Failed to drop course'$course' becasue of '$reason'")
+									case _ => complete(HttpResponse(502, entity = "Something Wrong"))
+								}
 							case _ => complete(HttpResponse(502, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 						}
 					}
@@ -107,6 +152,7 @@ object HTTPServer {
 					}
 				}
 			}
+
 		Http().bindAndHandle(route, "0.0.0.0", ConfigFactory.load().getInt("course-selection.http-port"))
 	}
 }

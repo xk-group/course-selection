@@ -15,6 +15,8 @@ import moe.taiho.course_selection.Judge
 object Student {
     sealed trait Command extends KryoSerializable
     // Requested by frontend
+	case class Ping() extends Command
+    case class Pong()
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
     case class Table() extends Command
@@ -177,9 +179,14 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             val ret = judge.showTable()
             sender() ! Response(student = id, course = 0, content = ret)
         case DebugPrint(msg) => sender() ! (id + "Receive " + msg)
+        case m : Ping => sender() ! Pong()
         case _: UnconfirmedWarning => // ignore
         case m => log.warning(s"\033[31munhandled message $m\033[0m")
     }
 
     override def persistenceId: String = s"Student-$id"
+
+    override def preStart(): Unit = {
+	    log.warning(id + "is up.")
+    }
 }
