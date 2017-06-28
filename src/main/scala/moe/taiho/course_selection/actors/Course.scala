@@ -21,7 +21,7 @@ object Course {
     case class Take(student: Int, deliveryId: Long) extends Command
     case class Quit(student: Int, deliveryId: Long) extends Command
     case class Ping() extends Command
-	case class Pong()
+	case class Pong() extends KryoSerializable
 
     case class Envelope(id: Int, command: Command) extends KryoSerializable
 

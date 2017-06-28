@@ -16,7 +16,7 @@ object Student {
     sealed trait Command extends KryoSerializable
     // Requested by frontend
 	case class Ping() extends Command
-    case class Pong()
+    case class Pong() extends KryoSerializable
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
     case class Table() extends Command

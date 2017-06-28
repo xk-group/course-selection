@@ -27,14 +27,13 @@ class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
 			case "student" =>
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
 				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Student.Pong] onComplete {
-					case Success(_) => return
+					case Success(_) => // do nothing
 					case _ => pingUntilPong("student", id)
 				}
 			case "course" =>
-				courseRegion ! Course.Envelope(id, Course.Ping())
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
 				((courseRegion ? Course.Envelope(id, Course.Ping())).mapTo[Course.Pong]) onComplete {
-					case Success(_)  => return
+					case Success(_)  => // do nothing
 					case _ => pingUntilPong("course", id) // redo it
 				}
 			case _ => // Do nothing
