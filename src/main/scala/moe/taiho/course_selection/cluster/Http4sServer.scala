@@ -2,30 +2,23 @@ package moe.taiho.course_selection.cluster
 
 import akka.Done
 import akka.actor.{ActorRef, ActorSystem}
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.Directives.{onComplete, _}
-import akka.http.scaladsl.model._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import akka.pattern.ask
 
 import scala.io.Source
-import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Success, Try}
-import io.circe._
+import scala.concurrent.Promise
+import scala.util.Success
 import org.http4s._
-import org.http4s.circe._
 import org.http4s.server._
 import org.http4s.dsl._
 import fs2.Task
+import org.http4s.server.blaze.BlazeBuilder
 
 
 class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
@@ -69,7 +62,7 @@ object CidQueryParaMatcher extends QueryParamDecoderMatcher[String]("cid")
 object SizeQueryParaMatcher extends QueryParamDecoderMatcher[String]("Size")
 
 object Http4sServer {
-	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Future[ServerBinding] = {
+	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Server = {
 
 		implicit val strategy = fs2.Strategy.fromFixedDaemonPool(2, threadName = "strategy")
 		val service = HttpService {
@@ -148,6 +141,7 @@ object Http4sServer {
 				}
 				Task.fromFuture(p.future)
 		}
-
+		BlazeBuilder.bindHttp(ConfigFactory.load().getInt("course-selection.http-port"), "0.0.0.0")
+				.mountService(service, "/").run
 	}
 }
