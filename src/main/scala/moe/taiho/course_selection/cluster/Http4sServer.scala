@@ -18,9 +18,8 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Success, Try}
-import io.circe._
+import scala.concurrent.Promise
+import scala.util.Success
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.server._
@@ -28,15 +27,14 @@ import org.http4s.dsl._
 import fs2.Task
 import org.http4s.server.blaze.BlazeBuilder
 
-
 object SidQueryParaMatcher extends QueryParamDecoderMatcher[String]("sid")
 object CidQueryParaMatcher extends QueryParamDecoderMatcher[String]("cid")
-object SizeQueryParaMatcher extends QueryParamDecoderMatcher[String]("Size")
+object SizeQueryParaMatcher extends QueryParamDecoderMatcher[String]("size")
 
 object Http4sServer {
 	def run(studentRegion: ActorRef, courseRegion: ActorRef)(implicit system: ActorSystem): Server = {
 
-		implicit val strategy = fs2.Strategy.fromFixedDaemonPool(2, threadName = "strategy")
+		implicit val strategy = fs2.Strategy.fromCachedDaemonPool()
 		val service = HttpService {
 			case GET -> Root / "hello" =>
 				Ok(s"<h1>Say hello to akka-http</h1>")
@@ -113,8 +111,7 @@ object Http4sServer {
 				}
 				Task.fromFuture(p.future)
 		}
-
 		BlazeBuilder.bindHttp(ConfigFactory.load().getInt("course-selection.http-port"), "0.0.0.0")
-			.mountService(service, "/").run
+				.mountService(service, "/").run
 	}
 }

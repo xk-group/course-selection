@@ -41,6 +41,7 @@ object ClusterMain extends App {
     }
 
     if (cluster.selfRoles contains "http") {
+        //val bindingFuture = HTTPServer.run(studentRegion, courseRegion)
         val bindingFuture = Http4sServer.run(studentRegion, courseRegion)
         val http_port = ConfigFactory.load().getInt("course-selection.http-port")
         println(s"Server online at http://0.0.0.0:${http_port}/\nPress RETURN to stop...")
