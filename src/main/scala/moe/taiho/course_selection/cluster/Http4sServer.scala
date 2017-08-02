@@ -2,29 +2,21 @@ package moe.taiho.course_selection.cluster
 
 import akka.Done
 import akka.actor.{ActorRef, ActorSystem}
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.model._
-import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import akka.pattern.ask
+
 import scala.io.Source
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
-import com.typesafe.config.ConfigFactory
-import moe.taiho.course_selection.actors.{Course, Student}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Success, Try}
-import io.circe._
 import org.http4s._
-import org.http4s.circe._
-import org.http4s.server._
 import org.http4s.dsl._
 import fs2.Task
+import moe.taiho.course_selection.actors.{Course, Student}
 
 
 class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
@@ -87,7 +79,7 @@ object Http4sServer {
 					val p = Promise[Response]
 					val f = p.future
 					implicit val askTimeout: Timeout = 10.seconds // set timeout
-					(studentRegion ? Student.Envelope(10086, Student.DebugPrint("Debug Message"))).mapTo[String]) onComplete {
+					(studentRegion ? Student.Envelope(10086, Student.DebugPrint("Debug Message"))).mapTo[String] onComplete {
 						case Success(result) => p success Response(Status.Ok)
 						case _ => p success Response(Status.RequestTimeout)//complete(s"The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!")
 					}
@@ -100,7 +92,7 @@ object Http4sServer {
 					val studentID = studentId.toInt + 1
 					val courseID = courseId.toInt
 					implicit val askTimeout: Timeout = 10.seconds // set timeout
-					onComplete((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) {
+					(studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info] onComplete {
 						case Success(res) =>
 							res match {
 								case Student.Success(_, course, _) => p success Response(Status.Ok)//complete(s"Successes drop course'$course'")
@@ -118,7 +110,7 @@ object Http4sServer {
 					val studentID = studentId.toInt + 1
 					val courseID = courseId.toInt
 					implicit val askTimeout: Timeout = 10.seconds // set timeout
-					onComplete((studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info]) {
+					(studentRegion ? Student.Envelope(studentID, Student.Quit(courseID))).mapTo[Student.Info] onComplete {
 						case Success(res) =>
 							res match {
 								case Student.Success(_, course, _) => p success Response(Status.Ok)//complete(s"Successes drop course'$course'")
@@ -136,7 +128,7 @@ object Http4sServer {
 					val courseID = courseId.toInt
 					val lim = size.toInt
 					implicit val askTimeout: Timeout = 10.seconds // set timeout
-					onComplete((courseRegion ? Course.Envelope(courseID, Course.SetLimit(lim))).mapTo[Done]) {
+					(courseRegion ? Course.Envelope(courseID, Course.SetLimit(lim))).mapTo[Done] onComplete {
 						case _ : Success[Done]=> p success Response(Status.Ok)//complete (HttpEntity (ContentTypes.`text/html(UTF-8)`, "<h1>Set Successfully!</h1>") )
 						case _ => p success Response(Status.BadGateway)//complete(HttpResponse(504, entity = "Timeout"))
 					}
@@ -148,7 +140,7 @@ object Http4sServer {
 					val f = p.future
 					val studentID = studentId.toInt + 1
 					implicit val askTimeout: Timeout = 10.seconds // set timeout
-					onComplete((studentRegion ? Student.Envelope(studentID, Student.Table())).mapTo[Student.Info]) {
+					(studentRegion ? Student.Envelope(studentID, Student.Table())).mapTo[Student.Info] onComplete {
 						case Success(res) =>
 							res match {
 								case Student.Response(_, _, content) => p success Response(Status.Ok)//complete(s"You have selected: '$content'")
