@@ -176,7 +176,7 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
 
     override def persistenceId: String = s"Student-$id"
 
-    override def preStart(): Unit = {
+    /*override def preStart(): Unit = {
         log.warning(s"\033[32m ${id} is up! \033[0m")
-    }
+    }*/
 }

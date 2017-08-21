@@ -17,7 +17,7 @@ class StudentPolicy(id: Int) {
         if (res.result) None else Some(res.reason)
     }
 
-    def validateDrop(course: Int): Option[Reason] = {
+    def validateQuit(course: Int): Option[Reason] = {
         val res = judge.dropCheck(course)
         if (res.result) None else Some(res.reason)
     }
