@@ -6,7 +6,4 @@ object CommonMessage {
     trait Reason extends KryoSerializable {
         def message(): String = this.toString
     }
-
-    case class Ping() extends KryoSerializable
-    case class Pong() extends KryoSerializable
 }

@@ -25,6 +25,8 @@ class CoursePolicy(id: Int) {
         numSelected += 1
     }
 
+    def validateQuit(student: Int): Option[Reason] = None
+
     def drop(student: Int): Unit = {
         numSelected -= 1
     }

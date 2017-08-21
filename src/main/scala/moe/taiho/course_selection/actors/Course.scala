@@ -10,16 +10,17 @@ import akka.event.Logging
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.KryoSerializable
-import moe.taiho.course_selection.actors.CommonMessage.{Pong}
 import moe.taiho.course_selection.policies.CoursePolicy
 
 import scala.collection.mutable
 
 object Course {
     sealed trait Command extends KryoSerializable
-    case class Ping() extends Command
     case class Take(student: Int, deliveryId: Long) extends Command
     case class Quit(student: Int, deliveryId: Long) extends Command
+
+    case class Ping() extends Command
+    case class Pong() extends KryoSerializable
 
     case class Envelope(id: Int, command: Command) extends KryoSerializable
 

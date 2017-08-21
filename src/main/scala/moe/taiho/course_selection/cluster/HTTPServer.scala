@@ -1,6 +1,5 @@
 package moe.taiho.course_selection.cluster
 
-import akka.Done
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
@@ -16,7 +15,6 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
-import moe.taiho.course_selection.actors.CommonMessage.Pong
 
 import scala.concurrent.Future
 import scala.util.{Success, Try}
@@ -27,13 +25,13 @@ class Pinger (studentRegion: ActorRef, courseRegion: ActorRef){
 		reciver match {
 			case "student" =>
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
-				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Pong] onComplete {
+				(studentRegion ? Student.Envelope(id, Student.Ping())).mapTo[Student.Pong] onComplete {
 					case Success(_) => // do nothing
 					case _ => pingUntilPong("student", id)
 				}
 			case "course" =>
 				implicit val askTimeout: Timeout = 10.seconds // set timeout
-				((courseRegion ? Course.Envelope(id, Course.Ping())).mapTo[Pong]) onComplete {
+				((courseRegion ? Course.Envelope(id, Course.Ping())).mapTo[Course.Pong]) onComplete {
 					case Success(_)  => // do nothing
 					case _ => pingUntilPong("course", id) // redo it
 				}

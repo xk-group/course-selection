@@ -8,14 +8,13 @@ import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
-import CommonMessage.{Pong, Reason}
+import CommonMessage.Reason
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import moe.taiho.course_selection.KryoSerializable
 import moe.taiho.course_selection.policies.StudentPolicy
 
 object Student {
     sealed trait Command extends KryoSerializable
-    case class Ping() extends Command
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
@@ -25,6 +24,9 @@ object Student {
     case class Rejected(course: Int, deliveryId: Long, reason: Reason) extends Command
     case class Quitted(course: Int, deliveryId: Long) extends Command
     case class DebugPrint(msg: String) extends Command
+
+    case class Ping() extends Command
+    case class Pong() extends KryoSerializable
 
     case class Envelope(id: Int, command: Command) extends KryoSerializable
 
