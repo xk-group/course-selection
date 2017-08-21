@@ -22,13 +22,13 @@ object Course {
     case class Ping() extends Command
     case class Pong() extends KryoSerializable
 
-    case class Envelope(id: Int, command: Command) extends KryoSerializable
+    case class Envelope(id: Int, command: Any) extends KryoSerializable
 
     val ShardNr: Int = ConfigFactory.load().getInt("course-selection.course-shard-nr")
     val ShardName = "Course"
     val Role = Some("course")
     val extractEntityId: ShardRegion.ExtractEntityId = {
-        case Envelope(id: Int, command: Command) => (id.toString, command)
+        case Envelope(id, command) => (id.toString, command)
     }
     val extractShardId: ShardRegion.ExtractShardId = {
         case m: Envelope => (m.id.hashCode % ShardNr).toString
