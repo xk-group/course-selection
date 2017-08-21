@@ -17,10 +17,15 @@ class StudentPolicy(id: Int) {
         if (res.result) None else Some(res.reason)
     }
 
-    def preTake(course: Int): Unit = {}
-    def take(course: Int): Unit = judge.courseTable.addCourse(course)
-    def failedTake(course: Int): Unit = {}
-    def preDrop(course: Int): Unit = {}
-    def drop(course: Int): Unit = judge.courseTable.dropCourse(course)
+    def validateQuit(course: Int): Option[Reason] = {
+        val res = judge.dropCheck(course)
+        if (res.result) None else Some(res.reason)
+    }
+
+    def preTake(course: Int): Unit = judge.courseTable.addCourse(course)
+    def take(course: Int): Unit = {}
+    def failedTake(course: Int): Unit = judge.courseTable.dropCourse(course)
+    def preDrop(course: Int): Unit = judge.courseTable.dropCourse(course)
+    def drop(course: Int): Unit = {}
     def setPolicy(cmd: Command): Unit = {}
 }

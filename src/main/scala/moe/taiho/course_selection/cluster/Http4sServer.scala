@@ -87,6 +87,7 @@ object Http4sServer {
 					case _ => p success Response(Status.Ok)//complete(HttpResponse(504, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 				}
 				Task.fromFuture(p.future)
+                /*
 			case POST -> Root / "setlimit" :? CidQueryParaMatcher(courseId) +& SizeQueryParaMatcher(size) =>
 				val p = Promise[Response]
 				val courseID = courseId.toInt
@@ -110,6 +111,7 @@ object Http4sServer {
 					case _ => p success Response(Status.RequestTimeout)//complete(HttpResponse(504, entity = "The server was not able " + "to produce a timely response to your request.\r\nPlease try again in a short while!"))
 				}
 				Task.fromFuture(p.future)
+                */
 		}
 		BlazeBuilder.bindHttp(ConfigFactory.load().getInt("course-selection.http-port"), "0.0.0.0")
 				.mountService(service, "/").run
