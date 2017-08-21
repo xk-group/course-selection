@@ -96,15 +96,12 @@ class Course extends PersistentActor {
             }
         case m @ Quit(student, deliveryId) =>
             if (state.newer(student, deliveryId)) {
-                val validation = policy.validateQuit(student)
-                if (validation.isEmpty) persist(m) { m =>
+                persist(m) { m =>
                     state.update(m)
                     replicator ! Update(SharedDataKey, LWWMap.empty[Int, Int], WriteLocal)(_ + (id, state.numSelected))
                     sender() ! Student.Quitted(id, deliveryId)
                     policy.drop(student)
                 //log.info(s"\033[32m ${student} quit ${id}\033[0m")
-                } else {
-                    sender() ! Student.Rejected(id, deliveryId, validation.get)
                 }
             }
         case m: CoursePolicy.Command =>
