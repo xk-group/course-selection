@@ -19,7 +19,7 @@ object TesetMain extends App {
 				case Some("SetLimit") =>
 					val (timeStamp :: courseID :: limitNum :: _) = numPattern.findAllMatchIn(line).toList.map(m => m.toString().toInt)
 					println(s"TimeStamp ${timeStamp}")
-					courseCommand = courseCommand :+ (timeStamp, Course.Envelope(courseID, Course.SetLimit(limitNum)))
+					//courseCommand = courseCommand :+ (timeStamp, Course.Envelope(courseID, Course.SetLimit(limitNum)))
 				case Some("Take") =>
 					val (timeStamp :: studentID :: courseID :: _) = numPattern.findAllMatchIn(line).toList.map(m => m.toString().toInt)
 					println(s"TimeStamp ${timeStamp}")

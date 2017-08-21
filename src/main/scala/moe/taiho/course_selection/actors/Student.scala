@@ -8,13 +8,14 @@ import akka.persistence.{AtLeastOnceDelivery, PersistentActor}
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable
-import CommonMessage.{Ping, Pong, Reason}
+import CommonMessage.{Pong, Reason}
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import moe.taiho.course_selection.KryoSerializable
 import moe.taiho.course_selection.policies.StudentPolicy
 
 object Student {
     sealed trait Command extends KryoSerializable
+    case class Ping() extends Command
     // Requested by frontend
     case class Take(course: Int) extends Command
     case class Quit(course: Int) extends Command
@@ -156,14 +157,19 @@ class Student extends PersistentActor with AtLeastOnceDelivery {
             }
         case m @ Quit(course) =>
             sessions remove course foreach { s => s ! Failure(student = id, course, target = true, DupRequest()) }
-            state.query(course) match {
-                case (false, false) => // do nothing
-                case (false, true) => sender() ! Success(student = id, course, target = false)
-                case _ => persist(m) { m =>
-                    sessions(course) = sender()
-                    state.update(m)
-                    policy.preDrop(course)
+            val validation = policy.validateTake(course)
+            if (validation.isEmpty) {
+                state.query(course) match {
+                    case (false, false) => // do nothing
+                    case (false, true) => sender() ! Success(student = id, course, target = false)
+                    case _ => persist(m) { m =>
+                        sessions(course) = sender()
+                        state.update(m)
+                        policy.preDrop(course)
+                    }
                 }
+            } else {
+                    sender() ! Failure(student = id, course, target = true, validation.get)
             }
         case m @ Table() => sender() ! StateInfo(student = id, course = 0, content = state.list())
         case m: StudentPolicy.Command =>
