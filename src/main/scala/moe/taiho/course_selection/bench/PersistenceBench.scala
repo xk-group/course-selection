@@ -1,7 +1,8 @@
-package moe.taiho.course_selection
+package moe.taiho.course_selection.bench
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.persistence.{PersistentActor, RecoveryCompleted}
+import moe.taiho.course_selection._
 
 object PersistenceBench extends App {
     val system = ActorSystem("PersistenceBench")

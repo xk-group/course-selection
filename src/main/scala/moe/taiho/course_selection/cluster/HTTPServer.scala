@@ -1,6 +1,5 @@
 package moe.taiho.course_selection.cluster
 
-import akka.Done
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
@@ -16,6 +15,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import moe.taiho.course_selection.actors.{Course, Student}
+import moe.taiho.course_selection.policies.CoursePolicy.Limit
+import akka.Done
 
 import scala.concurrent.Future
 import scala.util.{Success, Try}
@@ -123,7 +124,7 @@ object HTTPServer {
 						}
 					}
 				}
-			} ~
+			} ~/*
 			path("table") {
 				post {
 					parameters('sid) { (studentId) =>
@@ -139,14 +140,14 @@ object HTTPServer {
 						}
 					}
 				}
-			} ~
+			} ~*/
 			path("setlimit") {
 				post {
 					parameters('cid, 'size) { (courseId, size) =>
 						val courseID = courseId.toInt
 						val lim = size.toInt
 						implicit val askTimeout: Timeout = 10.seconds // set timeout
-						onComplete((courseRegion ? Course.Envelope(courseID, Course.SetLimit(lim))).mapTo[Done]) {
+						onComplete((courseRegion ? Course.Envelope(courseID, Limit(lim))).mapTo[Done]) {
 							case _ : Success[Done]=> complete (HttpEntity (ContentTypes.`text/html(UTF-8)`, "<h1>Set Successfully!</h1>") )
 							case _ => complete(HttpResponse(504, entity = "Timeout"))
 						}
